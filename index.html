@@ -121,14 +121,13 @@ const Slider = ({ label, value, min, max, step, onChange, unit, hint, ariaLabel 
   </div>
 );
 
-// 雙單位顯示卡：kN 為主、kgf 為副
+// 力量顯示卡：統一以 kgf 顯示
 const ForceCard = ({ title, kN, colorClass = 'text-white', description, accent }) => (
   <div className={`bg-slate-950 p-4 rounded-xl border ${accent ? 'border-red-900/60' : 'border-slate-800'} flex flex-col items-center justify-center text-center relative overflow-hidden`}>
     <div className="text-slate-400 text-xs mb-1 uppercase tracking-wider">{title}</div>
     <div className={`text-3xl md:text-4xl font-bold font-mono count-up ${colorClass}`} key={kN.toFixed(2)}>
-      {fmt(kN, 2)} <span className="text-base text-slate-500 font-sans">kN</span>
+      {fmt(kNtoKgf(kN), 0)} <span className="text-base text-slate-500 font-sans">kgf</span>
     </div>
-    <div className="text-sm text-slate-400 font-mono mt-1">≈ {fmt(kNtoKgf(kN), 0)} kgf</div>
     {description && <div className="text-xs text-slate-500 mt-2">{description}</div>}
   </div>
 );
@@ -163,7 +162,7 @@ const NfpaBadge = ({ force_kN }) => {
         </div>
       </div>
       <div className="text-xs text-slate-400">
-        <span className="font-medium text-slate-200">{r.name}</span> · MBS {r.mbs_kN} kN · 設計係數 {r.ratio}:1 · {r.persons} 人載重
+        <span className="font-medium text-slate-200">{r.name}</span> · MBS {fmt(kNtoKgf(r.mbs_kN), 0)} kgf · 設計係數 {r.ratio}:1 · {r.persons} 人載重
       </div>
       <div className={`text-sm font-mono ${e.color}`}>{e.text}</div>
       <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -173,9 +172,9 @@ const NfpaBadge = ({ force_kN }) => {
         }} />
       </div>
       <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-        <span>0 kN</span>
-        <span>SWL {fmt(r.swl_kN,1)} kN</span>
-        <span>MBS {r.mbs_kN} kN</span>
+        <span>0</span>
+        <span>SWL {fmt(kNtoKgf(r.swl_kN), 0)} kgf</span>
+        <span>MBS {fmt(kNtoKgf(r.mbs_kN), 0)} kgf</span>
       </div>
     </div>
   );
@@ -213,46 +212,193 @@ function FrictionModule() {
   }, [theta, turns]);
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">1. 繩索摩擦力 — Capstan Equation</h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            繩索纏繞於圓柱（鉤環、樹幹、下降器）時，摩擦力以指數成長。
-            公式：<code className="text-blue-300 bg-slate-800 px-1 rounded">T₁ = T₂ × e^(μθ)</code>
-          </p>
+    <div className="space-y-6">
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-100 mb-2">1. 繩索摩擦力 — Capstan Equation</h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              繩索纏繞於圓柱（鉤環、樹幹、下降器）時，摩擦力以指數成長。
+              公式：<code className="text-blue-300 bg-slate-800 px-1 rounded">T₁ = T₂ × e^(μθ)</code>
+            </p>
+          </div>
+          <div className="space-y-4 bg-slate-800/50 p-5 rounded-xl">
+            <Slider label="載重 (T₁)" value={load_kgf} min={10} max={500} step={10} unit="kgf" onChange={setLoad} />
+            <Slider label="纏繞圈數 (θ)" value={turns} min={0} max={4} step={0.25} unit="圈" onChange={setTurns} />
+            <Slider label="摩擦係數 (μ)" value={mu} min={0.1} max={0.8} step={0.05} unit="" onChange={setMu}
+              hint="0.2 金屬鉤環/確保器 · 0.4 乾燥樹幹 · 0.6 粗糙岩石" />
+          </div>
         </div>
-        <div className="space-y-4 bg-slate-800/50 p-5 rounded-xl">
-          <Slider label="載重 (T₁)" value={load_kgf} min={10} max={500} step={10} unit="kgf" onChange={setLoad} />
-          <Slider label="纏繞圈數 (θ)" value={turns} min={0} max={4} step={0.25} unit="圈" onChange={setTurns} />
-          <Slider label="摩擦係數 (μ)" value={mu} min={0.1} max={0.8} step={0.05} unit="" onChange={setMu}
-            hint="0.2 金屬鉤環/確保器 · 0.4 乾燥樹幹 · 0.6 粗糙岩石" />
+
+        <div className="space-y-4 flex flex-col">
+          <div className="grid grid-cols-2 gap-4">
+            <ForceCard title="所需制動力 (T₂)" kN={hold_kN} colorClass="text-green-400" description="您需要施加的力" />
+            <ForceCard title="摩擦力 (T₁−T₂)" kN={friction_kN} colorClass="text-blue-400" description="圓柱吸收的力" />
+          </div>
+          <NumberCard title="放大倍數" value={fmt(gain, 1)} unit="倍" colorClass="text-purple-400"
+            description={turns === 0 ? '未纏繞' : `${turns} 圈 × μ=${mu}`} />
+
+          <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[220px]">
+            <svg viewBox="0 0 200 220" className="w-full h-full max-h-64">
+              <circle cx="100" cy="100" r="40" fill="#334155" stroke="#475569" strokeWidth="3" />
+              <text x="100" y="104" fill="#94a3b8" fontSize="10" textAnchor="middle">μ = {mu}</text>
+
+              <path d={spiralPath} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+
+              <line x1="60" y1="140" x2="60" y2="200" stroke="#ef4444" strokeWidth="5" />
+              <polygon points="55,200 65,200 60,210" fill="#ef4444" />
+              <text x="60" y="218" fill="#ef4444" fontSize="11" fontWeight="bold" textAnchor="middle">T₁ {load_kgf} kgf</text>
+
+              <line x1="140" y1="100" x2="140" y2="20" stroke="#22c55e" strokeWidth={Math.max(1.5, 5 - turns)} />
+              <polygon points="135,30 145,30 140,18" fill="#22c55e" />
+              <text x="140" y="14" fill="#22c55e" fontSize="11" fontWeight="bold" textAnchor="middle">T₂ {fmt(kNtoKgf(hold_kN),0)} kgf</text>
+            </svg>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-4 flex flex-col">
-        <div className="grid grid-cols-2 gap-4">
-          <ForceCard title="所需制動力 (T₂)" kN={hold_kN} colorClass="text-green-400" description="您需要施加的力" />
-          <ForceCard title="摩擦力 (T₁−T₂)" kN={friction_kN} colorClass="text-blue-400" description="圓柱吸收的力" />
+      {/* === 進階解讀：Over The Edge Rescue 三部曲實測 === */}
+      <div className="bg-gradient-to-br from-sky-950/30 to-slate-900 border border-sky-800/40 rounded-xl p-5 space-y-4">
+        <div className="flex items-start gap-3 flex-wrap">
+          <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">▶ YouTube 系列</div>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-sky-200 font-bold text-base">
+              進階解讀：「一個鉤環 vs 兩個鉤環，哪個摩擦力較大？」三部曲
+            </div>
+            <div className="text-slate-400 text-xs mt-0.5">
+              來源：Over The Edge Rescue · 測試地點：紐西蘭 Aspiring Safety 50 kN 垂直試驗台
+            </div>
+          </div>
         </div>
-        <NumberCard title="放大倍數" value={fmt(gain, 1)} unit="倍" colorClass="text-purple-400"
-          description={turns === 0 ? '未纏繞' : `${turns} 圈 × μ=${mu}`} />
 
-        <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[220px]">
-          <svg viewBox="0 0 200 220" className="w-full h-full max-h-64">
-            <circle cx="100" cy="100" r="40" fill="#334155" stroke="#475569" strokeWidth="3" />
-            <text x="100" y="104" fill="#94a3b8" fontSize="10" textAnchor="middle">μ = {mu}</text>
+        {/* 三部曲說明卡 */}
+        <div className="grid md:grid-cols-3 gap-3">
+          <div className="bg-slate-950/60 rounded-lg p-3 border border-slate-800">
+            <div className="text-xs text-sky-400 font-bold mb-1">PART 1 · 摩擦係數理論</div>
+            <a href="https://www.youtube.com/watch?v=1r21sGpqd3w" target="_blank" rel="noopener noreferrer"
+              className="text-xs text-slate-200 hover:text-sky-300 underline-offset-2 hover:underline block mb-2">
+              Coefficient of Friction Testing ↗
+            </a>
+            <div className="text-xs text-slate-400 leading-relaxed">
+              用 Capstan 公式推導：單鉤環包覆角為 180°（半圓）；雙鉤環為 2×90° 也等於 180°。
+              <strong className="text-sky-300">理論上摩擦力相同</strong>。
+            </div>
+          </div>
 
-            <path d={spiralPath} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
+          <div className="bg-slate-950/60 rounded-lg p-3 border border-slate-800">
+            <div className="text-xs text-sky-400 font-bold mb-1">PART 2 · 慢拉測試</div>
+            <a href="https://www.youtube.com/watch?v=l9wy479rKcw" target="_blank" rel="noopener noreferrer"
+              className="text-xs text-slate-200 hover:text-sky-300 underline-offset-2 hover:underline block mb-2">
+              Slow Pull Tests ↗
+            </a>
+            <div className="text-xs text-slate-400 leading-relaxed">
+              在 50 kN 試驗台上實測「最大可單手控制力 Max Force」。
+              Munter 結加第二個鉤環只多 <strong className="text-sky-300">0.1 kN</strong>，幾乎可忽略。
+            </div>
+          </div>
 
-            <line x1="60" y1="140" x2="60" y2="200" stroke="#ef4444" strokeWidth="5" />
-            <polygon points="55,200 65,200 60,210" fill="#ef4444" />
-            <text x="60" y="218" fill="#ef4444" fontSize="11" fontWeight="bold" textAnchor="middle">T₁ {load_kgf} kgf</text>
+          <div className="bg-slate-950/60 rounded-lg p-3 border border-slate-800">
+            <div className="text-xs text-sky-400 font-bold mb-1">PART 3 · 實際垂降</div>
+            <a href="https://www.youtube.com/watch?v=kOf7zMUQPDc" target="_blank" rel="noopener noreferrer"
+              className="text-xs text-slate-200 hover:text-sky-300 underline-offset-2 hover:underline block mb-2">
+              Practical Abseil Tests ↗
+            </a>
+            <div className="text-xs text-slate-400 leading-relaxed">
+              真人實際垂降驗證：Munter 加第二個鉤環體感差不多；Reverso 在細繩時加鉤環有感；
+              <strong className="text-sky-300">「多繞一圈」效果遠大於加鉤環</strong>。
+            </div>
+          </div>
+        </div>
 
-            <line x1="140" y1="100" x2="140" y2="20" stroke="#22c55e" strokeWidth={Math.max(1.5, 5 - turns)} />
-            <polygon points="135,30 145,30 140,18" fill="#22c55e" />
-            <text x="140" y="14" fill="#22c55e" fontSize="11" fontWeight="bold" textAnchor="middle">T₂ {fmt(kNtoKgf(hold_kN),0)} kgf</text>
-          </svg>
+        {/* 結論表格 */}
+        <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
+          <div className="px-4 py-2 bg-slate-800/60 text-slate-200 font-bold text-sm">
+            📊 三部曲結論彙整表
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-300">
+              <thead className="bg-slate-900 text-slate-400 uppercase">
+                <tr>
+                  <th className="px-3 py-2 border-b border-slate-800">情境 / 裝置</th>
+                  <th className="px-3 py-2 border-b border-slate-800">變因</th>
+                  <th className="px-3 py-2 border-b border-slate-800">摩擦增益</th>
+                  <th className="px-3 py-2 border-b border-slate-800">建議</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">理論（Capstan）</td>
+                  <td className="px-3 py-2">1 vs 2 鉤環</td>
+                  <td className="px-3 py-2 text-slate-400">相同（θ=180°）</td>
+                  <td className="px-3 py-2 font-sans text-slate-400">同總包覆角 → 摩擦同</td>
+                </tr>
+                <tr className="border-b border-slate-800/60 bg-slate-900/40">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">Munter 義大利結</td>
+                  <td className="px-3 py-2">+1 鉤環</td>
+                  <td className="px-3 py-2 text-yellow-400">+0.1 kN</td>
+                  <td className="px-3 py-2 font-sans text-yellow-300">⚠ 不值得加</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">Munter 義大利結</td>
+                  <td className="px-3 py-2">D 型 vs O 型鉤環</td>
+                  <td className="px-3 py-2 text-yellow-400">+0.3 kN</td>
+                  <td className="px-3 py-2 font-sans text-yellow-300">⚠ 差異很小</td>
+                </tr>
+                <tr className="border-b border-slate-800/60 bg-slate-900/40">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">Reverso 確保器（粗繩）</td>
+                  <td className="px-3 py-2">+1 鉤環</td>
+                  <td className="px-3 py-2 text-yellow-400">差異不明顯</td>
+                  <td className="px-3 py-2 font-sans text-slate-400">不需加</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">Reverso 確保器（細繩）</td>
+                  <td className="px-3 py-2">+1 鉤環</td>
+                  <td className="px-3 py-2 text-green-400">+0.5 kN ↑</td>
+                  <td className="px-3 py-2 font-sans text-green-300">✓ 推薦加</td>
+                </tr>
+                <tr className="border-b border-slate-800/60 bg-slate-900/40">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">Reverso（細繩進階）</td>
+                  <td className="px-3 py-2">兩鉤環分開（一個變向）</td>
+                  <td className="px-3 py-2 text-green-400">明顯增加</td>
+                  <td className="px-3 py-2 font-sans text-green-300">✓ 最易控制</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 font-sans font-medium text-slate-200">細繩垂降通用</td>
+                  <td className="px-3 py-2">Munter → Munter 1.5（多半圈）</td>
+                  <td className="px-3 py-2 text-green-400">+0.7 kN</td>
+                  <td className="px-3 py-2 font-sans text-green-300">✓ 強烈推薦</td>
+                </tr>
+                <tr className="bg-emerald-950/30">
+                  <td className="px-3 py-2 font-sans font-bold text-emerald-300">🏆 通用最佳解</td>
+                  <td className="px-3 py-2 text-emerald-300">多繞一圈（鉤環/裝置/繩索）</td>
+                  <td className="px-3 py-2 text-emerald-400 font-bold">e^(μ·π) 倍</td>
+                  <td className="px-3 py-2 font-sans text-emerald-300 font-bold">✓✓ 對應 Capstan 公式</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 重點結論 */}
+        <div className="bg-emerald-950/30 rounded-lg p-4 border border-emerald-900/50">
+          <div className="text-emerald-300 font-bold text-sm mb-2">📌 三部曲核心結論</div>
+          <ol className="text-xs text-slate-300 leading-relaxed list-decimal pl-5 space-y-1">
+            <li><strong className="text-emerald-300">理論與實測一致</strong>：包覆角度（θ）才是決定摩擦力的關鍵，鉤環「數量」並非主因——這正是 Capstan 公式 T = T₂·e^(μθ) 的核心。</li>
+            <li><strong className="text-emerald-300">想加摩擦力？多繞一圈！</strong> 每多繞 180°（π 弧度），摩擦增益就乘上 e^(μπ)（μ=0.2 時 ≈ 1.87 倍；μ=0.3 時 ≈ 2.57 倍）。比加第二個鉤環有效得多。</li>
+            <li><strong className="text-emerald-300">細繩例外</strong>：Reverso 在細繩上摩擦本來就低，加第二個鉤環從低基準算起仍有感（+0.5 kN）；用「分開兩鉤環＋變向」更易控制。</li>
+            <li><strong className="text-emerald-300">D 型 vs O 型差異小</strong>：選鉤環不必執著形狀，承重方向（軸向）才是重點。</li>
+          </ol>
+        </div>
+
+        <div className="text-[10px] text-slate-500 border-t border-slate-800 pt-2">
+          來源：
+          <a href="https://www.youtube.com/watch?v=1r21sGpqd3w" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Part 1 · 摩擦係數</a>
+          {' · '}
+          <a href="https://www.youtube.com/watch?v=l9wy479rKcw" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Part 2 · 慢拉測試</a>
+          {' · '}
+          <a href="https://www.youtube.com/watch?v=kOf7zMUQPDc" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Part 3 · 實際垂降</a>
+          {' · '}
+          <a href="https://overtheedgerescue.com/rope-rescue/oneortwocarabinersforfriction/" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Over The Edge Rescue 完整測試報告</a>
         </div>
       </div>
     </div>
@@ -260,70 +406,429 @@ function FrictionModule() {
 }
 
 // ========================================================================
-// 模組 2：Highline 索道張力 — 加 NFPA 安全係數
+// 模組 2：Highline 索道張力 — 兩端可拖曳 + 相機 AR 疊圖 + 格線
 // ========================================================================
 function HighlineModule() {
+  const W = 800, H = 480;
   const [load_kgf, setLoad] = useState(100);
-  const [angle, setAngle] = useState(10);
-
   const load_kN = (load_kgf * G) / 1000;
-  const tension_kN = load_kN / (2 * Math.sin(toRad(angle)));
-  const multiplier = tension_kN / load_kN;
-  const internalAngle = 180 - 2 * angle;
 
-  const human = evalHuman(tension_kN);
-  const lowAngle = angle < 5;
+  // 兩個錨點與負載皆可拖曳
+  const [anchorL, setAnchorL] = useState({ x: W * 0.15, y: H * 0.20 });
+  const [anchorR, setAnchorR] = useState({ x: W * 0.85, y: H * 0.20 });
+  const [loadPos, setLoadPos] = useState({ x: W * 0.50, y: H * 0.55 });
+
+  // 相機與格線
+  const [cameraOn, setCameraOn] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [cameraError, setCameraError] = useState('');
+  const videoRef = useRef(null);
+  const [drag, setDrag] = useState(null);
+
+  useEffect(() => {
+    let stream = null;
+    if (cameraOn) {
+      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(s => {
+          stream = s;
+          if (videoRef.current) {
+            videoRef.current.srcObject = s;
+          }
+          setCameraError('');
+        })
+        .catch(err => {
+          setCameraError('無法存取相機：' + (err.message || err.name) + '（需 HTTPS 或 localhost）');
+          setCameraOn(false);
+        });
+    }
+    return () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [cameraOn]);
+
+  // 力學計算（向量平衡）
+  const data = useMemo(() => {
+    // 從 load 指向兩個錨點的向量（張力沿此方向作用於 load）
+    const dxL = anchorL.x - loadPos.x, dyL = anchorL.y - loadPos.y;
+    const dxR = anchorR.x - loadPos.x, dyR = anchorR.y - loadPos.y;
+    const lenL = Math.hypot(dxL, dyL) || 1;
+    const lenR = Math.hypot(dxR, dyR) || 1;
+    const uL = { x: dxL / lenL, y: dyL / lenL };
+    const uR = { x: dxR / lenR, y: dyR / lenR };
+
+    // 解線性系統：T_L·uL + T_R·uR + (0, +W) = 0
+    const det = uL.x * uR.y - uR.x * uL.y;
+    let T_L_kN = 0, T_R_kN = 0;
+    if (Math.abs(det) > 1e-6) {
+      T_L_kN = ( 0 * uR.y - uR.x * (-load_kN)) / det;
+      T_R_kN = (uL.x * (-load_kN) - 0 * uL.y) / det;
+    }
+
+    // 角度（從水平線量起，正值代表錨點高於 load）
+    const thetaL_deg = toDeg(Math.atan2(-dyL, Math.abs(dxL)));
+    const thetaR_deg = toDeg(Math.atan2(-dyR, Math.abs(dxR)));
+
+    // 兩繩之間的夾角（在 load 點上量測）= 兩錨點間的中央夾角
+    const cosInner = clamp(uL.x * uR.x + uL.y * uR.y, -1, 1);
+    const innerAngle_deg = toDeg(Math.acos(cosInner));
+
+    // 偏離量（負載相對兩錨點中心的水平偏移，pixel）
+    const centerX = (anchorL.x + anchorR.x) / 2;
+    const offset_px = loadPos.x - centerX;
+    const span_px = Math.abs(anchorR.x - anchorL.x) || 1;
+    const offsetRatio = offset_px / span_px; // 正值 = 偏右
+
+    // 偏離點所需控制拉力（水平）：假設單繩等張力情境，
+    // 解 T(uL+uR) + (0, +W) = (F_h, 0)
+    //   垂直：T(uL.y + uR.y) + W = 0  → T = -W / (uL.y + uR.y)
+    //   水平：F_h = -T·(uL.x + uR.x)  （外加力與繩拉力方向相反）
+    const sumY = uL.y + uR.y;
+    let F_h_kN = 0, T_uniform_kN = 0;
+    if (sumY < -1e-3) {
+      T_uniform_kN = -load_kN / sumY;
+      F_h_kN = -T_uniform_kN * (uL.x + uR.x);
+    }
+
+    return {
+      T_L_kN, T_R_kN, uL, uR, thetaL_deg, thetaR_deg, lenL, lenR,
+      innerAngle_deg, offset_px, offsetRatio, F_h_kN, centerX,
+    };
+  }, [anchorL, anchorR, loadPos, load_kN]);
+
+  // 拖曳處理
+  const onMove = useCallback((e) => {
+    if (!drag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const sx = clamp((e.clientX - rect.left) * (W / rect.width), 16, W - 16);
+    const sy = clamp((e.clientY - rect.top) * (H / rect.height), 16, H - 16);
+    if (drag === 'L') setAnchorL({ x: sx, y: sy });
+    if (drag === 'R') setAnchorR({ x: sx, y: sy });
+    if (drag === 'W') setLoadPos({ x: sx, y: sy });
+  }, [drag]);
+
+  // 安全評估（取兩側較大值）
+  const maxT_kN = Math.max(Math.abs(data.T_L_kN), Math.abs(data.T_R_kN));
+  const human = evalHuman(maxT_kN);
+  const minTheta = Math.min(data.thetaL_deg, data.thetaR_deg);
+  const lowAngle = minTheta < 5 && minTheta >= 0;
+  const invalid = data.T_L_kN < 0 || data.T_R_kN < 0; // 負張力 = 無解（錨點低於負載）
+
+  // 格線間距
+  const GRID = 40;
 
   return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">2. 索道繩固定點張力 — Highline</h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            兩點間水平架繩，下垂角越小（中央夾角越大），固定點張力呈倍數放大。
-            公式：<code className="text-blue-300 bg-slate-800 px-1 rounded">T = W / (2sinθ)</code>
-            <br/><span className="text-yellow-400">救援實務：θ &lt; 5° 即視為高風險（10% 規則）</span>
-          </p>
-        </div>
-        <div className="space-y-4 bg-slate-800/50 p-5 rounded-xl">
-          <Slider label="中央載重 (W)" value={load_kgf} min={50} max={500} step={10} unit="kgf" onChange={setLoad} />
-          <Slider label="下垂角 (θ)" value={angle} min={1} max={45} step={1} unit="°" onChange={setAngle} />
-        </div>
-        {lowAngle && (
-          <div className="bg-red-950/40 border border-red-800 rounded-xl p-3 text-sm text-red-300">
-            ⚠ 下垂角過小，固定點張力急遽放大，違反救援 10% 規則
+    <div className="space-y-4">
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-100 mb-2">2. 索道繩固定點張力 — Highline</h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              兩端錨點與負載皆可<strong className="text-blue-300">自由拖曳</strong>。
+              下垂角越小、中央夾角越接近 180°，張力呈倍數放大。
+              對稱：<code className="text-blue-300 bg-slate-800 px-1 rounded">T = W / (2sinθ)</code>；
+              不對稱：解向量平衡 <code className="text-blue-300 bg-slate-800 px-1 rounded">T_L·u_L + T_R·u_R + W = 0</code>
+              <br/><span className="text-yellow-400">救援實務：θ &lt; 5°（中央夾角 &gt; 170°）即視為高風險（10% 規則）</span>
+              <br/><span className="text-orange-400">負載偏離中心時，會出現水平控制拉力 F_控</span>
+            </p>
           </div>
-        )}
+          <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
+            <Slider label="中央載重 (W)" value={load_kgf} min={50} max={500} step={10} unit="kgf" onChange={setLoad} />
+            <div className="flex flex-wrap gap-2 text-xs">
+              <button onClick={() => setCameraOn(!cameraOn)}
+                className={`px-3 py-1.5 rounded font-medium transition-colors ${cameraOn ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
+                {cameraOn ? '⏹ 停止相機' : '📷 啟用相機 AR'}
+              </button>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-700 text-slate-200 cursor-pointer">
+                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
+                顯示格線
+              </label>
+              <button onClick={() => {
+                setAnchorL({ x: W * 0.15, y: H * 0.20 });
+                setAnchorR({ x: W * 0.85, y: H * 0.20 });
+                setLoadPos({ x: W * 0.50, y: H * 0.55 });
+              }} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200">
+                重置位置
+              </button>
+            </div>
+            {cameraError && (
+              <div className="text-xs text-red-400 bg-red-950/40 border border-red-800 rounded p-2">
+                {cameraError}
+              </div>
+            )}
+            <div className="text-xs text-slate-500 leading-relaxed">
+              💡 提示：相機 AR 需要 HTTPS 環境（GitHub Pages 自動支援）。
+              拖曳兩個灰色 ▲ 錨點調整索道形狀，拖曳紅色負載觀察張力如何變化。
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <ForceCard title="左側張力 T_L" kN={Math.max(0, data.T_L_kN)}
+              colorClass={data.T_L_kN > load_kN * 2 ? 'text-red-400' : data.T_L_kN > load_kN ? 'text-yellow-400' : 'text-green-400'}
+              description={`θ_L = ${fmt(data.thetaL_deg,1)}°`} />
+            <ForceCard title="右側張力 T_R" kN={Math.max(0, data.T_R_kN)}
+              colorClass={data.T_R_kN > load_kN * 2 ? 'text-red-400' : data.T_R_kN > load_kN ? 'text-yellow-400' : 'text-green-400'}
+              description={`θ_R = ${fmt(data.thetaR_deg,1)}°`} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <NumberCard title="中央夾角 ∠AWB" value={fmt(data.innerAngle_deg, 1)} unit="°"
+              colorClass={data.innerAngle_deg > 170 ? 'text-red-400' : data.innerAngle_deg > 150 ? 'text-yellow-400' : 'text-purple-400'}
+              description={data.innerAngle_deg > 170 ? '⚠ 接近水平，張力暴增' : '兩繩在負載點的夾角'} />
+            <ForceCard title={Math.abs(data.offsetRatio) < 0.02 ? '偏離拉力（置中）' : `偏離拉力（${data.offsetRatio > 0 ? '偏右' : '偏左'}）`}
+              kN={Math.abs(data.F_h_kN)}
+              colorClass={Math.abs(data.F_h_kN) > load_kN ? 'text-orange-400' : 'text-blue-400'}
+              description={Math.abs(data.offsetRatio) < 0.02 ? '無需控制力' : `偏移 ${fmt(Math.abs(data.offsetRatio) * 100, 0)}%`} />
+          </div>
+          <NfpaBadge force_kN={maxT_kN} />
+          {lowAngle && (
+            <div className="bg-red-950/40 border border-red-800 rounded p-2 text-xs text-red-300">
+              ⚠ 至少一側下垂角 &lt; 5°，違反救援 10% 規則
+            </div>
+          )}
+          {invalid && (
+            <div className="bg-orange-950/40 border border-orange-800 rounded p-2 text-xs text-orange-300">
+              ⚠ 幾何無效：負載必須位於兩錨點下方才能形成索道
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-4 flex flex-col">
-        <div className="grid grid-cols-3 gap-3">
-          <NumberCard title="中央夾角" value={fmt(internalAngle,0)} unit="°" colorClass="text-purple-400" />
-          <ForceCard title="單側張力 T" kN={tension_kN} colorClass={human.color} />
-          <NumberCard title="放大倍數" value={fmt(multiplier,1)} unit="倍" colorClass="text-blue-400" />
-        </div>
-        <NfpaBadge force_kN={tension_kN} />
+      {/* 全寬互動畫布 */}
+      <div className="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+        {/* 相機背景層 */}
+        {cameraOn && (
+          <video ref={videoRef} autoPlay playsInline muted
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ aspectRatio: `${W} / ${H}` }} />
+        )}
 
-        <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[180px]">
-          <svg viewBox="0 0 300 160" className="w-full h-full">
-            <rect x="10" y="20" width="10" height="50" fill="#64748b" />
-            <rect x="280" y="20" width="10" height="50" fill="#64748b" />
-            {(() => {
-              const sag = 130 * Math.tan(toRad(angle));
-              const midY = 40 + sag;
-              return (<>
-                <path d={`M 20 40 L 150 ${midY} L 280 40`} fill="none" stroke="#f59e0b" strokeWidth="3" />
-                <circle cx="150" cy={midY} r="8" fill="#ef4444" />
-                <line x1="150" y1={midY} x2="150" y2={midY + 30} stroke="#ef4444" strokeWidth="2" strokeDasharray="4" />
-                <text x="155" y={midY + 25} fill="#ef4444" fontSize="11" fontWeight="bold">W = {load_kgf} kgf</text>
-                <path d={`M 50 40 A 30 30 0 0 1 ${50 + 30 * Math.cos(toRad(angle))} ${40 + 30 * Math.sin(toRad(angle))}`} fill="none" stroke="#94a3b8" />
-                <text x="55" y="55" fill="#94a3b8" fontSize="11">θ={angle}°</text>
-                <line x1="20" y1="40" x2="80" y2="40" stroke="#475569" strokeDasharray="2" />
-                <text x="155" y={midY - 12} fill="#c084fc" fontSize="11">∠{fmt(internalAngle,0)}°</text>
-              </>);
-            })()}
-          </svg>
-        </div>
+        <svg viewBox={`0 0 ${W} ${H}`}
+          style={{ aspectRatio: `${W} / ${H}` }}
+          className="w-full select-none touch-none relative z-10"
+          onPointerMove={onMove}
+          onPointerUp={() => setDrag(null)}
+          onPointerLeave={() => setDrag(null)}>
+
+          {/* 格線（可選） */}
+          {showGrid && (
+            <g opacity={cameraOn ? 0.5 : 1}>
+              {Array.from({ length: Math.ceil(W / GRID) + 1 }, (_, i) => (
+                <line key={`gv${i}`} x1={i * GRID} y1={0} x2={i * GRID} y2={H}
+                  stroke={cameraOn ? '#22d3ee' : '#1e293b'} strokeWidth={i % 5 === 0 ? 1.2 : 0.5}
+                  strokeDasharray={i % 5 === 0 ? 'none' : '2 4'} />
+              ))}
+              {Array.from({ length: Math.ceil(H / GRID) + 1 }, (_, i) => (
+                <line key={`gh${i}`} x1={0} y1={i * GRID} x2={W} y2={i * GRID}
+                  stroke={cameraOn ? '#22d3ee' : '#1e293b'} strokeWidth={i % 5 === 0 ? 1.2 : 0.5}
+                  strokeDasharray={i % 5 === 0 ? 'none' : '2 4'} />
+              ))}
+              {/* 中心十字準星 */}
+              <line x1={W/2 - 12} y1={H/2} x2={W/2 + 12} y2={H/2} stroke="#fbbf24" strokeWidth="1.5" />
+              <line x1={W/2} y1={H/2 - 12} x2={W/2} y2={H/2 + 12} stroke="#fbbf24" strokeWidth="1.5" />
+              <circle cx={W/2} cy={H/2} r="3" fill="#fbbf24" />
+            </g>
+          )}
+
+          {/* 水平參考線（兩錨點間） */}
+          <line x1={anchorL.x} y1={anchorL.y} x2={anchorR.x} y2={anchorL.y}
+            stroke="#475569" strokeWidth="1" strokeDasharray="3 4" opacity="0.5" />
+
+          {/* 索道繩 */}
+          <path d={`M ${anchorL.x} ${anchorL.y} L ${loadPos.x} ${loadPos.y} L ${anchorR.x} ${anchorR.y}`}
+            fill="none" stroke="#f59e0b" strokeWidth="3" />
+
+          {/* 角度弧（左） */}
+          {data.thetaL_deg > 0 && data.thetaL_deg < 89 && (
+            <g>
+              <path d={`M ${anchorL.x + 30} ${anchorL.y} A 30 30 0 0 1 ${anchorL.x + 30 * Math.cos(toRad(data.thetaL_deg))} ${anchorL.y + 30 * Math.sin(toRad(data.thetaL_deg))}`}
+                fill="none" stroke="#c084fc" strokeWidth="1.5" />
+              <text x={anchorL.x + 38} y={anchorL.y + 20} fontSize="13" fill="#c084fc" fontWeight="bold">
+                θ_L={fmt(data.thetaL_deg,1)}°
+              </text>
+            </g>
+          )}
+
+          {/* 角度弧（右） */}
+          {data.thetaR_deg > 0 && data.thetaR_deg < 89 && (
+            <g>
+              <path d={`M ${anchorR.x - 30} ${anchorR.y} A 30 30 0 0 0 ${anchorR.x - 30 * Math.cos(toRad(data.thetaR_deg))} ${anchorR.y + 30 * Math.sin(toRad(data.thetaR_deg))}`}
+                fill="none" stroke="#c084fc" strokeWidth="1.5" />
+              <text x={anchorR.x - 90} y={anchorR.y + 20} fontSize="13" fill="#c084fc" fontWeight="bold">
+                θ_R={fmt(data.thetaR_deg,1)}°
+              </text>
+            </g>
+          )}
+
+          {/* 張力箭頭：從錨點指向 load（沿繩索方向）— 表示繩索拉錨點的力 */}
+          {(() => {
+            // 在錨點處，繩索往 load 方向拉
+            const aL_to_L = { x: loadPos.x - anchorL.x, y: loadPos.y - anchorL.y };
+            const aR_to_L = { x: loadPos.x - anchorR.x, y: loadPos.y - anchorR.y };
+            const lL = Math.hypot(aL_to_L.x, aL_to_L.y) || 1;
+            const lR = Math.hypot(aR_to_L.x, aR_to_L.y) || 1;
+            const scaleL = Math.min(80, Math.abs(data.T_L_kN) * 40);
+            const scaleR = Math.min(80, Math.abs(data.T_R_kN) * 40);
+            const tipLx = anchorL.x + (aL_to_L.x / lL) * scaleL;
+            const tipLy = anchorL.y + (aL_to_L.y / lL) * scaleL;
+            const tipRx = anchorR.x + (aR_to_L.x / lR) * scaleR;
+            const tipRy = anchorR.y + (aR_to_L.y / lR) * scaleR;
+            const angL = toDeg(Math.atan2(aL_to_L.y, aL_to_L.x));
+            const angR = toDeg(Math.atan2(aR_to_L.y, aR_to_L.x));
+            return (
+              <g>
+                {/* 左側張力箭頭 */}
+                <line x1={anchorL.x} y1={anchorL.y} x2={tipLx} y2={tipLy} stroke="#ef4444" strokeWidth="4" />
+                <polygon points="0,-6 12,0 0,6" fill="#ef4444"
+                  transform={`translate(${tipLx},${tipLy}) rotate(${angL})`} />
+
+                {/* 右側張力箭頭 */}
+                <line x1={anchorR.x} y1={anchorR.y} x2={tipRx} y2={tipRy} stroke="#ef4444" strokeWidth="4" />
+                <polygon points="0,-6 12,0 0,6" fill="#ef4444"
+                  transform={`translate(${tipRx},${tipRy}) rotate(${angR})`} />
+              </g>
+            );
+          })()}
+
+          {/* 重力向量（從 load 向下） */}
+          <line x1={loadPos.x} y1={loadPos.y} x2={loadPos.x} y2={loadPos.y + 50}
+            stroke="#dc2626" strokeWidth="3" strokeDasharray="6 3" />
+          <polygon points={`${loadPos.x - 6},${loadPos.y + 46} ${loadPos.x + 6},${loadPos.y + 46} ${loadPos.x},${loadPos.y + 56}`} fill="#dc2626" />
+          <text x={loadPos.x + 10} y={loadPos.y + 56} fontSize="12" fill="#dc2626" fontWeight="bold">
+            W = {load_kgf} kgf
+          </text>
+
+          {/* 中央夾角（兩繩在 load 點之間的夾角） */}
+          {(() => {
+            const r = 38;
+            const ang1 = Math.atan2(data.uL.y, data.uL.x);
+            const ang2 = Math.atan2(data.uR.y, data.uR.x);
+            // 從 uL 方向往 uR 方向劃弧，sweep 取最短路徑
+            let delta = ang2 - ang1;
+            while (delta > Math.PI) delta -= 2 * Math.PI;
+            while (delta < -Math.PI) delta += 2 * Math.PI;
+            const sweep = delta > 0 ? 1 : 0;
+            const sx = loadPos.x + r * Math.cos(ang1);
+            const sy = loadPos.y + r * Math.sin(ang1);
+            const ex = loadPos.x + r * Math.cos(ang2);
+            const ey = loadPos.y + r * Math.sin(ang2);
+            const midAng = ang1 + delta / 2;
+            const labelX = loadPos.x + (r + 30) * Math.cos(midAng);
+            const labelY = loadPos.y + (r + 30) * Math.sin(midAng);
+            return (
+              <g>
+                <path d={`M ${sx} ${sy} A ${r} ${r} 0 0 ${sweep} ${ex} ${ey}`}
+                  fill="none" stroke="#c084fc" strokeWidth="2.5" />
+                <rect x={labelX - 32} y={labelY - 11} width="64" height="22" rx="4"
+                  fill="#1e1b4b" stroke="#c084fc" strokeWidth="1.5" opacity="0.95" />
+                <text x={labelX} y={labelY + 4} textAnchor="middle"
+                  fontSize="13" fill="#c084fc" fontWeight="bold">
+                  ∠ {fmt(data.innerAngle_deg, 0)}°
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* 偏離指示：負載偏離兩錨點中心時，顯示水平控制拉力 */}
+          {Math.abs(data.offsetRatio) > 0.02 && Math.abs(data.F_h_kN) > 0.05 && (() => {
+            // 中心參考點：兩錨點中點正下方（同 load 高度）
+            const refX = data.centerX;
+            const refY = loadPos.y;
+            const dirSign = data.offsetRatio > 0 ? 1 : -1; // 偏右 → 控制拉力指向右
+
+            // 控制拉力箭頭：從負載出發，水平指向「使其更偏離」的方向
+            // （此即外加力，抵抗繩的回復力）
+            const len = Math.min(80, Math.abs(data.F_h_kN) * 40);
+            const tipX = loadPos.x + dirSign * len;
+            const tipY = loadPos.y;
+            return (
+              <g>
+                {/* 中心參考垂直虛線 */}
+                <line x1={refX} y1={anchorL.y - 10} x2={refX} y2={refY + 20}
+                  stroke="#fbbf24" strokeWidth="1" strokeDasharray="3 5" opacity="0.6" />
+                <text x={refX + 4} y={anchorL.y - 14} fontSize="10" fill="#fbbf24">中心</text>
+
+                {/* 偏離量水平指示 */}
+                <line x1={refX} y1={refY + 30} x2={loadPos.x} y2={refY + 30}
+                  stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="4 3" />
+                <text x={(refX + loadPos.x) / 2} y={refY + 26} textAnchor="middle"
+                  fontSize="10" fill="#fbbf24" fontWeight="bold">
+                  偏離 {fmt(Math.abs(data.offsetRatio) * 100, 0)}%
+                </text>
+
+                {/* 水平控制拉力箭頭 */}
+                <line x1={loadPos.x} y1={loadPos.y} x2={tipX} y2={tipY}
+                  stroke="#fb923c" strokeWidth="4" />
+                <polygon points={`0,-7 14,0 0,7`} fill="#fb923c"
+                  transform={`translate(${tipX},${tipY}) rotate(${dirSign > 0 ? 0 : 180})`} />
+                <rect x={tipX + (dirSign > 0 ? 12 : -130)} y={tipY - 14} width="118" height="26" rx="4"
+                  fill="#431407" stroke="#fb923c" strokeWidth="1.5" />
+                <text x={tipX + (dirSign > 0 ? 18 : -124)} y={tipY + 4} fontSize="12" fill="#fb923c" fontWeight="bold" fontFamily="monospace">
+                  F_控 = {fmt(kNtoKgf(Math.abs(data.F_h_kN)), 0)} kgf
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* 左錨點（▲ 三角形） */}
+          <g onPointerDown={(e) => { e.target.setPointerCapture(e.pointerId); setDrag('L'); }}
+            className="cursor-grab active:cursor-grabbing">
+            <circle cx={anchorL.x} cy={anchorL.y} r="22" fill="transparent" />
+            <polygon points={`${anchorL.x - 14},${anchorL.y + 14} ${anchorL.x + 14},${anchorL.y + 14} ${anchorL.x},${anchorL.y - 14}`}
+              fill="#cbd5e1" stroke="#1e293b" strokeWidth="2" />
+            <rect x={anchorL.x - 18} y={anchorL.y + 14} width="36" height="6" fill="#475569" />
+          </g>
+          {/* 左錨點張力標籤（最上層，避免被遮擋） */}
+          <g>
+            <rect x={anchorL.x - 70} y={anchorL.y - 50} width="100" height="28" rx="4"
+              fill="#fef2f2" stroke="#ef4444" strokeWidth="1.5" />
+            <text x={anchorL.x - 20} y={anchorL.y - 32} textAnchor="middle" fontSize="13" fill="#b91c1c" fontWeight="bold" fontFamily="monospace">
+              T_L = {fmt(Math.max(0, data.T_L_kN), 2)} kN
+            </text>
+          </g>
+
+          {/* 右錨點（▲ 三角形） */}
+          <g onPointerDown={(e) => { e.target.setPointerCapture(e.pointerId); setDrag('R'); }}
+            className="cursor-grab active:cursor-grabbing">
+            <circle cx={anchorR.x} cy={anchorR.y} r="22" fill="transparent" />
+            <polygon points={`${anchorR.x - 14},${anchorR.y + 14} ${anchorR.x + 14},${anchorR.y + 14} ${anchorR.x},${anchorR.y - 14}`}
+              fill="#cbd5e1" stroke="#1e293b" strokeWidth="2" />
+            <rect x={anchorR.x - 18} y={anchorR.y + 14} width="36" height="6" fill="#475569" />
+          </g>
+          {/* 右錨點張力標籤 */}
+          <g>
+            <rect x={anchorR.x - 30} y={anchorR.y - 50} width="100" height="28" rx="4"
+              fill="#fef2f2" stroke="#ef4444" strokeWidth="1.5" />
+            <text x={anchorR.x + 20} y={anchorR.y - 32} textAnchor="middle" fontSize="13" fill="#b91c1c" fontWeight="bold" fontFamily="monospace">
+              T_R = {fmt(Math.max(0, data.T_R_kN), 2)} kN
+            </text>
+          </g>
+
+          {/* 負載（可拖曳） */}
+          <g onPointerDown={(e) => { e.target.setPointerCapture(e.pointerId); setDrag('W'); }}
+            className="cursor-grab active:cursor-grabbing">
+            <circle cx={loadPos.x} cy={loadPos.y} r="22" fill="transparent" />
+            <circle cx={loadPos.x} cy={loadPos.y} r="12" fill="#ef4444" stroke="#ffffff" strokeWidth="3" />
+            <text x={loadPos.x} y={loadPos.y + 4} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#ffffff">W</text>
+          </g>
+
+          {/* 圖例 */}
+          <g transform={`translate(10, ${H - 60})`}>
+            <rect x="0" y="0" width="180" height="50" rx="6"
+              fill={cameraOn ? 'rgba(15,23,42,0.7)' : 'rgba(2,6,23,0.8)'}
+              stroke="#475569" strokeWidth="1" />
+            <text x="8" y="16" fontSize="11" fill="#cbd5e1" fontWeight="bold">圖例</text>
+            <line x1="8" y1="26" x2="28" y2="26" stroke="#f59e0b" strokeWidth="3" />
+            <text x="34" y="29" fontSize="10" fill="#cbd5e1">繩索</text>
+            <line x1="70" y1="26" x2="90" y2="26" stroke="#ef4444" strokeWidth="3" />
+            <text x="96" y="29" fontSize="10" fill="#cbd5e1">張力</text>
+            <line x1="8" y1="40" x2="28" y2="40" stroke="#dc2626" strokeWidth="3" strokeDasharray="3 2" />
+            <text x="34" y="43" fontSize="10" fill="#cbd5e1">重力 W</text>
+            <line x1="92" y1="40" x2="112" y2="40" stroke="#c084fc" strokeWidth="2" />
+            <text x="118" y="43" fontSize="10" fill="#cbd5e1">下垂角 θ</text>
+          </g>
+        </svg>
       </div>
     </div>
   );
@@ -336,7 +841,8 @@ function FallImpactModule() {
   const [mass, setMass] = useState(80);
   const [ropeLength, setRopeLength] = useState(10);
   const [fallDistance, setFallDistance] = useState(5);
-  const [k_kN, setK] = useState(40);             // 繩索動態剛度
+  const [k_kgf, setK_kgf] = useState(4080);      // 繩索動態剛度（kgf）
+  const k_kN = (k_kgf * G) / 1000;
 
   // FIX: 只依 ropeLength，使用 Math.min
   useEffect(() => {
@@ -356,7 +862,7 @@ function FallImpactModule() {
     setShowFlash(true);
     const t = setTimeout(() => setShowFlash(false), 500);
     return () => clearTimeout(t);
-  }, [fallFactor, mass, k_kN]);
+  }, [fallFactor, mass, k_kgf]);
 
   // 視覺定位
   const startY = fallFactor <= 1 ? 60 : 60 - (fallFactor - 1) * 30;
@@ -372,15 +878,15 @@ function FallImpactModule() {
             公式：<code className="text-blue-300 bg-slate-800 px-1 rounded">F = mg + √(mg² + 2·k·mg·FF)</code>
           </p>
           <p className="text-xs text-slate-500 mt-2">
-            人體門檻：&lt;4 安全 · &lt;6 UIAA 上限 · &lt;8 OSHA · &lt;12 重傷 · ≥12 致命
+            人體門檻：&lt;408 kgf 安全 · &lt;612 kgf UIAA 上限 · &lt;816 kgf OSHA · &lt;1224 kgf 重傷 · ≥1224 kgf 致命
           </p>
         </div>
         <div className="space-y-4 bg-slate-800/50 p-5 rounded-xl">
           <Slider label="體重 (m)" value={mass} min={50} max={120} step={1} unit="kg" onChange={setMass} />
           <Slider label="有效繩長 (L)" value={ropeLength} min={1} max={50} step={1} unit="m" onChange={setRopeLength} />
           <Slider label="墜落距離 (h)" value={fallDistance} min={0.1} max={ropeLength * 2} step={0.1} unit="m" onChange={setFallDistance} />
-          <Slider label="繩索動態剛度 k" value={k_kN} min={20} max={100} step={5} unit="kN" onChange={setK}
-            hint="UIAA 動態繩典型值 25–40 kN，靜力繩 80–120 kN" />
+          <Slider label="繩索動態剛度 k" value={k_kgf} min={2000} max={12000} step={100} unit="kgf" onChange={setK_kgf}
+            hint="UIAA 動態繩典型 2500–4100 kgf · 靜力繩 8200–12200 kgf" />
         </div>
       </div>
 
@@ -390,7 +896,7 @@ function FallImpactModule() {
             colorClass={fallFactor>=2 ? 'text-red-500 font-bold' : fallFactor>1 ? 'text-orange-400' : fallFactor>0.5 ? 'text-yellow-400' : 'text-green-400'} />
           <ForceCard title="衝擊力" kN={impact_kN}
             colorClass={human.color + (impact_kN > 6 ? ' pulse-red' : '')}
-            description={human.label} accent={impact_kN > 8} />
+            description={impact_kN > 6 ? `⚠ ${human.label}（>612 kgf）` : human.label} accent={impact_kN > 8} />
         </div>
         <NfpaBadge force_kN={impact_kN} />
 
@@ -659,30 +1165,66 @@ function DirectionalAnchorModule() {
           description={`為單邊張力的 ${fmt(anchor_kN/tension_kN,2)} 倍`} />
         <NfpaBadge force_kN={anchor_kN} />
 
-        <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[220px]">
-          <svg viewBox="0 0 200 200" className="w-full h-full max-h-64">
-            <rect x="95" y="20" width="10" height="70" fill="#334155" />
-            <circle cx="100" cy="100" r="10" fill="#cbd5e1" stroke="#475569" strokeWidth="3" />
+        <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[280px]">
+          <svg viewBox="0 0 240 280" className="w-full h-full max-h-80">
+            {/* 固定錨結構（樑/天花板） */}
+            <rect x="40" y="10" width="160" height="14" fill="#334155" stroke="#1e293b" strokeWidth="1" />
+            <line x1="50" y1="24" x2="40" y2="32" stroke="#475569" strokeWidth="1" />
+            <line x1="80" y1="24" x2="70" y2="32" stroke="#475569" strokeWidth="1" />
+            <line x1="160" y1="24" x2="150" y2="32" stroke="#475569" strokeWidth="1" />
+            <line x1="190" y1="24" x2="180" y2="32" stroke="#475569" strokeWidth="1" />
+            {/* 連接到變向點 */}
+            <line x1="120" y1="24" x2="120" y2="80" stroke="#64748b" strokeWidth="3" />
+
+            {/* 變向鉤環（中心點 120,90） */}
+            <circle cx="120" cy="90" r="12" fill="#cbd5e1" stroke="#475569" strokeWidth="3" />
+            <circle cx="120" cy="90" r="6" fill="#0f172a" />
+
             {(() => {
               const a = (angle / 2) * Math.PI / 180;
-              const len = 70;
-              const x1 = 100 - len * Math.sin(a), y1 = 100 + len * Math.cos(a);
-              const x2 = 100 + len * Math.sin(a), y2 = 100 + len * Math.cos(a);
+              const len = 110;
+              const cx = 120, cy = 90;
+              const x1 = cx - len * Math.sin(a), y1 = cy + len * Math.cos(a);
+              const x2 = cx + len * Math.sin(a), y2 = cy + len * Math.cos(a);
+              const arrowLen = Math.min(60, anchor_kN * 7);
               return (<>
-                <line x1="100" y1="100" x2={x1} y2={y1} stroke="#f59e0b" strokeWidth="3.5" />
-                <line x1="100" y1="100" x2={x2} y2={y2} stroke="#f59e0b" strokeWidth="3.5" />
-                <text x={x1 - 30} y={y1 + 14} fill="#f59e0b" fontSize="11">T={tension_kgf}</text>
-                <text x={x2 - 5} y={y2 + 14} fill="#f59e0b" fontSize="11">T={tension_kgf}</text>
-                <line x1="100" y1="100" x2="100" y2={100 - Math.min(70, anchor_kN * 7)}
-                  stroke="#ef4444" strokeWidth="3.5" />
-                <text x="108" y={100 - Math.min(70, anchor_kN * 7) + 5} fill="#ef4444" fontSize="13" fontWeight="bold">
-                  F={fmt(kNtoKgf(anchor_kN),0)}
+                {/* 兩條繩索（向下） */}
+                <line x1={cx} y1={cy} x2={x1} y2={y1} stroke="#f59e0b" strokeWidth="3.5" />
+                <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#f59e0b" strokeWidth="3.5" />
+
+                {/* 左端：重物（負載） */}
+                <line x1={x1} y1={y1} x2={x1} y2={y1 + 8} stroke="#f59e0b" strokeWidth="3" />
+                <rect x={x1 - 18} y={y1 + 8} width="36" height="34" rx="4" fill="#64748b" stroke="#334155" strokeWidth="2" />
+                <text x={x1} y={y1 + 24} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#ffffff">{tension_kgf}</text>
+                <text x={x1} y={y1 + 36} textAnchor="middle" fontSize="8" fill="#cbd5e1">kgf</text>
+                {/* 重力箭頭 */}
+                <line x1={x1} y1={y1 + 44} x2={x1} y2={y1 + 60} stroke="#dc2626" strokeWidth="2" />
+                <polygon points={`${x1 - 4},${y1 + 56} ${x1 + 4},${y1 + 56} ${x1},${y1 + 64}`} fill="#dc2626" />
+
+                {/* 右端：拉力手 */}
+                <line x1={x2} y1={y2} x2={x2} y2={y2 + 8} stroke="#f59e0b" strokeWidth="3" />
+                <circle cx={x2} cy={y2 + 22} r="12" fill="#3b82f6" stroke="#1e3a8a" strokeWidth="2" />
+                <text x={x2} y={y2 + 26} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#ffffff">P</text>
+                <text x={x2} y={y2 + 50} textAnchor="middle" fontSize="9" fill="#3b82f6" fontWeight="bold">{tension_kgf} kgf</text>
+
+                {/* 張力 T 標籤（沿繩索） */}
+                <text x={(cx + x1) / 2 - 30} y={(cy + y1) / 2} fontSize="10" fill="#f59e0b" fontWeight="bold">T={tension_kgf}</text>
+                <text x={(cx + x2) / 2 + 6} y={(cy + y2) / 2} fontSize="10" fill="#f59e0b" fontWeight="bold">T={tension_kgf}</text>
+
+                {/* 變向錨點承受合力 F（向上箭頭） */}
+                <line x1={cx} y1={cy} x2={cx} y2={cy - arrowLen} stroke="#ef4444" strokeWidth="4" />
+                <polygon points={`${cx - 5},${cy - arrowLen + 6} ${cx + 5},${cy - arrowLen + 6} ${cx},${cy - arrowLen - 4}`} fill="#ef4444" />
+                <rect x={cx + 8} y={cy - arrowLen - 8} width="86" height="22" rx="4" fill="#fef2f2" stroke="#ef4444" />
+                <text x={cx + 14} y={cy - arrowLen + 7} fontSize="12" fill="#b91c1c" fontWeight="bold" fontFamily="monospace">
+                  F = {fmt(kNtoKgf(anchor_kN), 0)} kgf
                 </text>
+
+                {/* 角度弧 */}
                 {angle > 0 && (
-                  <path d={`M ${100 - 30 * Math.sin(a)} ${100 + 30 * Math.cos(a)} A 30 30 0 0 0 ${100 + 30 * Math.sin(a)} ${100 + 30 * Math.cos(a)}`}
-                    fill="none" stroke="#94a3b8" />
+                  <path d={`M ${cx - 28 * Math.sin(a)} ${cy + 28 * Math.cos(a)} A 28 28 0 0 0 ${cx + 28 * Math.sin(a)} ${cy + 28 * Math.cos(a)}`}
+                    fill="none" stroke="#94a3b8" strokeWidth="1.5" />
                 )}
-                <text x="92" y="148" fill="#94a3b8" fontSize="11">{angle}°</text>
+                <text x={cx} y={cy + 42} textAnchor="middle" fontSize="11" fill="#94a3b8" fontWeight="bold">θ = {angle}°</text>
               </>);
             })()}
           </svg>
@@ -783,8 +1325,7 @@ function AnchorPullAngleModule() {
           </div>
           <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
             <div className="text-xs font-bold text-slate-400 uppercase mb-1">合力 R（A 端承受）</div>
-            <div className="text-lg font-mono text-red-600">{fmt(data.Rmag, 2)} kN</div>
-            <div className="text-xs text-slate-500">≈ {fmt(kNtoKgf(data.Rmag), 0)} kgf</div>
+            <div className="text-2xl font-mono text-red-600">{fmt(kNtoKgf(data.Rmag), 0)} <span className="text-sm">kgf</span></div>
           </div>
           <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
             <div className="text-xs font-bold text-slate-400 uppercase mb-2">緊邊 (Capstan)</div>
@@ -849,14 +1390,14 @@ function AnchorPullAngleModule() {
             {/* L 端繩索（A→L） */}
             <line x1={A.x} y1={A.y} x2={L.x} y2={L.y} stroke="#0ea5e9" strokeWidth="3" />
             <text x={A.x + 6} y={(A.y + L.y) / 2} fontSize="12" fill="#0ea5e9" fontWeight="bold">
-              T_L = {fmt(T_L, 2)} kN
+              T_L = {fmt(kNtoKgf(T_L), 0)} kgf
             </text>
 
             {/* P 端繩索（A→P） */}
             <line x1={A.x} y1={A.y} x2={P.x} y2={P.y} stroke="#0ea5e9" strokeWidth="3" />
             <text x={(A.x + P.x) / 2 + (alphaDeg >= 0 ? 8 : -90)} y={(A.y + P.y) / 2 - 6}
               fontSize="12" fill="#0ea5e9" fontWeight="bold">
-              T_P = {fmt(data.T_P, 2)} kN
+              T_P = {fmt(kNtoKgf(data.T_P), 0)} kgf
             </text>
 
             {/* 合力箭頭 R（A 端承受的合力） */}
@@ -871,9 +1412,9 @@ function AnchorPullAngleModule() {
                   <line x1={A.x} y1={A.y} x2={tipX} y2={tipY} stroke="#ef4444" strokeWidth="5" />
                   <polygon points={`0,-7 14,0 0,7`} fill="#ef4444"
                     transform={`translate(${tipX},${tipY}) rotate(${ang})`} />
-                  <rect x={tipX + 12} y={tipY - 14} rx="4" width="120" height="26" fill="#fef2f2" stroke="#ef4444" />
+                  <rect x={tipX + 12} y={tipY - 14} rx="4" width="130" height="26" fill="#fef2f2" stroke="#ef4444" />
                   <text x={tipX + 18} y={tipY + 4} fontSize="13" fill="#b91c1c" fontWeight="bold" fontFamily="monospace">
-                    R = {fmt(data.Rmag, 2)} kN
+                    R = {fmt(kNtoKgf(data.Rmag), 0)} kgf
                   </text>
                 </g>
               );
@@ -936,7 +1477,7 @@ function AnchorPullAngleModule() {
           <div className="bg-white border border-slate-200 rounded p-3">
             <div className="font-bold text-slate-700 mb-1">力學說明</div>
             <div className="text-slate-600 leading-relaxed">
-              T_L 為負載重力（恆定 {fmt(T_L,2)} kN）。T_P 為操作端拉力，依 Capstan
+              T_L 為負載重力（恆定 {fmt(kNtoKgf(T_L), 0)} kgf）。T_P 為操作端拉力，依 Capstan
               方程 e^(μθ) 修正（緊邊 = {tight}）。固定點 A 承受兩端張力的向量和 R。
             </div>
           </div>
