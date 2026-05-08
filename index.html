@@ -78,6 +78,58 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const kNtoKgf = (kN) => kN * KGF_PER_KN;
 const fmt = (v, d=1) => Number(v).toFixed(d);
 
+// 截圖：合成 video（背景）+ SVG（前景），輸出 PNG
+async function captureSVGWithVideo(svgEl, videoEl, W, H, filename) {
+  if (!svgEl) return false;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  // 背景：相機畫面（cover 縮放）或深色底
+  if (videoEl && videoEl.srcObject && videoEl.videoWidth > 0) {
+    const vRatio = videoEl.videoWidth / videoEl.videoHeight;
+    const cRatio = W / H;
+    let dw, dh, dx, dy;
+    if (vRatio > cRatio) { dh = H; dw = dh * vRatio; dx = (W - dw) / 2; dy = 0; }
+    else { dw = W; dh = dw / vRatio; dx = 0; dy = (H - dh) / 2; }
+    ctx.drawImage(videoEl, dx, dy, dw, dh);
+  } else {
+    ctx.fillStyle = '#020617';
+    ctx.fillRect(0, 0, W, H);
+  }
+  // SVG 圖層
+  let svgStr = new XMLSerializer().serializeToString(svgEl);
+  if (!svgStr.includes('xmlns="http://www.w3.org/2000/svg"')) {
+    svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  }
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  try {
+    await new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => { ctx.drawImage(img, 0, 0, W, H); res(); };
+      img.onerror = rej;
+      img.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+  // 下載 PNG
+  return new Promise((res) => {
+    canvas.toBlob(b => {
+      if (!b) { res(false); return; }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      res(true);
+    }, 'image/png');
+  });
+}
+
 // ========================================================================
 // 圖示 (內嵌 SVG，不依賴 lucide)
 // ========================================================================
@@ -418,12 +470,22 @@ function HighlineModule() {
   const [anchorR, setAnchorR] = useState({ x: W * 0.85, y: H * 0.20 });
   const [loadPos, setLoadPos] = useState({ x: W * 0.50, y: H * 0.55 });
 
-  // 相機與格線
+  // 相機 / 格線 / 全螢幕 / 截圖
   const [cameraOn, setCameraOn] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
   const [cameraError, setCameraError] = useState('');
+  const [shotMsg, setShotMsg] = useState('');
   const videoRef = useRef(null);
+  const svgRef = useRef(null);
   const [drag, setDrag] = useState(null);
+
+  const takeScreenshot = useCallback(async () => {
+    const ok = await captureSVGWithVideo(svgRef.current, videoRef.current, W, H,
+      `highline_${Date.now()}.png`);
+    setShotMsg(ok ? '✓ 截圖已儲存' : '✗ 截圖失敗');
+    setTimeout(() => setShotMsg(''), 2000);
+  }, [W, H]);
 
   useEffect(() => {
     let stream = null;
@@ -543,6 +605,14 @@ function HighlineModule() {
                 <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
                 顯示格線
               </label>
+              <button onClick={() => setFullscreen(true)}
+                className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
+                🖥 放大畫布
+              </button>
+              <button onClick={takeScreenshot}
+                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium">
+                📸 截圖
+              </button>
               <button onClick={() => {
                 setAnchorL({ x: W * 0.15, y: H * 0.20 });
                 setAnchorR({ x: W * 0.85, y: H * 0.20 });
@@ -550,6 +620,7 @@ function HighlineModule() {
               }} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200">
                 重置位置
               </button>
+              {shotMsg && <span className="self-center text-emerald-400 font-medium">{shotMsg}</span>}
             </div>
             {cameraError && (
               <div className="text-xs text-red-400 bg-red-950/40 border border-red-800 rounded p-2">
@@ -595,21 +666,47 @@ function HighlineModule() {
         </div>
       </div>
 
-      {/* 全寬互動畫布 */}
-      <div className="relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
-        {/* 相機背景層 */}
-        {cameraOn && (
-          <video ref={videoRef} autoPlay playsInline muted
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ aspectRatio: `${W} / ${H}` }} />
+      {/* 全寬互動畫布（支援全螢幕放大） */}
+      <div className={fullscreen
+        ? 'fixed inset-0 z-50 bg-slate-950 flex flex-col'
+        : 'relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden'}>
+        {fullscreen && (
+          <div className="bg-slate-900/90 backdrop-blur px-3 py-2 flex justify-between items-center gap-2 border-b border-slate-700">
+            <span className="text-slate-200 font-bold text-sm">索道張力分析 — 全螢幕模式</span>
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => setCameraOn(!cameraOn)}
+                className={`px-3 py-1.5 rounded text-xs font-medium ${cameraOn ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-200'}`}>
+                {cameraOn ? '⏹ 相機' : '📷 相機'}
+              </button>
+              <label className="flex items-center gap-1 px-3 py-1.5 rounded bg-slate-700 text-slate-200 text-xs cursor-pointer">
+                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
+              </label>
+              <button onClick={takeScreenshot}
+                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium">📸 截圖</button>
+              <button onClick={() => setFullscreen(false)}
+                className="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium">⏏ 退出</button>
+              {shotMsg && <span className="self-center text-emerald-400 text-xs">{shotMsg}</span>}
+            </div>
+          </div>
         )}
 
-        <svg viewBox={`0 0 ${W} ${H}`}
-          style={{ aspectRatio: `${W} / ${H}` }}
-          className="w-full select-none touch-none relative z-10"
-          onPointerMove={onMove}
-          onPointerUp={() => setDrag(null)}
-          onPointerLeave={() => setDrag(null)}>
+        <div className={fullscreen ? 'flex-1 flex items-center justify-center overflow-hidden' : 'relative'}>
+          <div className={fullscreen
+              ? 'relative max-w-full max-h-full'
+              : 'relative w-full'}
+            style={{ aspectRatio: `${W} / ${H}`, ...(fullscreen ? { width: 'min(100%, calc(100vh * 800 / 480))' } : {}) }}>
+            {/* 相機背景層 */}
+            {cameraOn && (
+              <video ref={videoRef} autoPlay playsInline muted
+                className="absolute inset-0 w-full h-full object-cover" />
+            )}
+
+            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
+              className="absolute inset-0 w-full h-full select-none touch-none z-10"
+              preserveAspectRatio="xMidYMid meet"
+              onPointerMove={onMove}
+              onPointerUp={() => setDrag(null)}
+              onPointerLeave={() => setDrag(null)}>
 
           {/* 格線（可選） */}
           {showGrid && (
@@ -828,7 +925,9 @@ function HighlineModule() {
             <line x1="92" y1="40" x2="112" y2="40" stroke="#c084fc" strokeWidth="2" />
             <text x="118" y="43" fontSize="10" fill="#cbd5e1">下垂角 θ</text>
           </g>
-        </svg>
+            </svg>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1573,6 +1672,438 @@ function MAModule() {
 }
 
 // ========================================================================
+// 模組 8（新）：高轉折點受力分析（下方錨點 → 高處轉折 → 操作端）
+// 樹枝、鉤環、滑輪等都適用
+// ========================================================================
+function RedirectAnalysisModule() {
+  const W = 800, H = 480;
+
+  // 三個可拖曳點：下方錨點 A、高處轉折點 R、操作端 O
+  const [anchor, setAnchor] = useState({ x: W * 0.20, y: H * 0.78 });
+  const [redirect, setRedirect] = useState({ x: W * 0.50, y: H * 0.18 });
+  const [operator, setOperator] = useState({ x: W * 0.80, y: H * 0.78 });
+
+  const [load_kgf, setLoad] = useState(100);
+  const [mu, setMu] = useState(0.20);
+  const [tight, setTight] = useState('A');     // 緊邊：A=載重端（垂降）、O=操作端（拉升）
+  const [pulleyType, setPulleyType] = useState('carabiner'); // 'tree' | 'carabiner' | 'pulley'
+
+  // 相機 / 格線 / 全螢幕 / 截圖
+  const [cameraOn, setCameraOn] = useState(false);
+  const [showGrid, setShowGrid] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [cameraError, setCameraError] = useState('');
+  const [shotMsg, setShotMsg] = useState('');
+  const videoRef = useRef(null);
+  const svgRef = useRef(null);
+  const [drag, setDrag] = useState(null);
+
+  const load_kN = (load_kgf * G) / 1000;
+
+  // 滑輪/鉤環效率（影響等效摩擦）
+  const muEff = pulleyType === 'pulley' ? Math.max(0.05, mu * 0.3)   // 滑輪低摩擦
+              : pulleyType === 'tree'    ? Math.min(0.8, mu * 1.8)   // 樹幹高摩擦
+              : mu;                                                    // 鉤環
+
+  // 啟動相機
+  useEffect(() => {
+    let stream = null;
+    if (cameraOn) {
+      navigator.mediaDevices?.getUserMedia({ video: { facingMode: 'environment' } })
+        .then(s => { stream = s; if (videoRef.current) videoRef.current.srcObject = s; setCameraError(''); })
+        .catch(err => { setCameraError('無法存取相機：' + (err.message || err.name) + '（需 HTTPS 或 localhost）'); setCameraOn(false); });
+    }
+    return () => {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [cameraOn]);
+
+  const takeScreenshot = useCallback(async () => {
+    const ok = await captureSVGWithVideo(svgRef.current, videoRef.current, W, H,
+      `redirect_${Date.now()}.png`);
+    setShotMsg(ok ? '✓ 截圖已儲存' : '✗ 截圖失敗');
+    setTimeout(() => setShotMsg(''), 2000);
+  }, []);
+
+  // 力學計算（在 R 點分析）
+  const data = useMemo(() => {
+    const dxRA = anchor.x - redirect.x, dyRA = anchor.y - redirect.y;
+    const dxRO = operator.x - redirect.x, dyRO = operator.y - redirect.y;
+    const lenRA = Math.hypot(dxRA, dyRA) || 1;
+    const lenRO = Math.hypot(dxRO, dyRO) || 1;
+    const uRA = { x: dxRA / lenRA, y: dyRA / lenRA };
+    const uRO = { x: dxRO / lenRO, y: dyRO / lenRO };
+
+    // 包覆角 θ = R 點兩繩段之間的夾角
+    const cosT = clamp(uRA.x * uRO.x + uRA.y * uRO.y, -1, 1);
+    const theta = Math.acos(cosT);
+    const angleDeg = toDeg(theta);
+
+    // Capstan 摩擦 e^(μθ)
+    const gain = Math.exp(muEff * theta);
+
+    // 張力：A 端為載重端 = load_kN
+    const T_A_kN = load_kN;
+    // 操作端 = 載重 / e^μθ（垂降，緊邊在 A）或載重 × e^μθ（拉升，緊邊在 O）
+    const T_O_kN = tight === 'A' ? load_kN / gain : load_kN * gain;
+
+    // R 點承受合力（兩繩拉動 R 朝向 A 與 O）
+    const Rx = T_A_kN * uRA.x + T_O_kN * uRO.x;
+    const Ry = T_A_kN * uRA.y + T_O_kN * uRO.y;
+    const Rmag = Math.hypot(Rx, Ry);
+
+    // 警告：若 R 比 A 還低，違反「上方轉折」假設
+    const redirectAboveAnchor = redirect.y < anchor.y;
+    const redirectAboveOperator = redirect.y < operator.y;
+
+    return {
+      angleDeg, theta, gain, T_A_kN, T_O_kN, Rmag, Rx, Ry,
+      uRA, uRO, redirectAboveAnchor, redirectAboveOperator,
+    };
+  }, [anchor, redirect, operator, load_kN, muEff, tight]);
+
+  const onMove = useCallback((e) => {
+    if (!drag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const sx = clamp((e.clientX - rect.left) * (W / rect.width), 16, W - 16);
+    const sy = clamp((e.clientY - rect.top) * (H / rect.height), 16, H - 16);
+    if (drag === 'A') setAnchor({ x: sx, y: sy });
+    if (drag === 'R') setRedirect({ x: sx, y: sy });
+    if (drag === 'O') setOperator({ x: sx, y: sy });
+  }, [drag]);
+
+  const GRID = 40;
+  const geometryWarn = !data.redirectAboveAnchor || !data.redirectAboveOperator;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-100 mb-2">8. 高轉折點受力分析</h2>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              下方錨點（負載／受困者）的繩索向上經過<strong className="text-green-300">高轉折點</strong>
+              （樹幹／鉤環／滑輪）後再下到操作端。轉折點承受兩繩的向量合力。
+              <br/>公式：<code className="text-blue-300 bg-slate-800 px-1 rounded">R = T_A·û_A + T_O·û_O</code>
+              <br/>含 Capstan 摩擦：<code className="text-blue-300 bg-slate-800 px-1 rounded">T_緊 = T_鬆 × e^(μθ)</code>
+            </p>
+          </div>
+          <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
+            <Slider label="負載 (W)" value={load_kgf} min={50} max={500} step={10} unit="kgf" onChange={setLoad} />
+            <Slider label="摩擦係數 μ（基準）" value={mu} min={0} max={0.8} step={0.05} unit="" onChange={setMu}
+              hint="鉤環 0.2 · 樹幹 0.4 · 粗糙岩 0.6（依轉折物自動修正）" />
+            <div>
+              <div className="text-sm font-medium text-slate-300 mb-1.5">轉折物類型</div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button onClick={() => setPulleyType('tree')}
+                  className={`px-2 py-1.5 rounded text-xs ${pulleyType==='tree' ? 'bg-amber-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  🌳 樹幹（×1.8）
+                </button>
+                <button onClick={() => setPulleyType('carabiner')}
+                  className={`px-2 py-1.5 rounded text-xs ${pulleyType==='carabiner' ? 'bg-blue-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  ⛓ 鉤環（×1.0）
+                </button>
+                <button onClick={() => setPulleyType('pulley')}
+                  className={`px-2 py-1.5 rounded text-xs ${pulleyType==='pulley' ? 'bg-emerald-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  ⚙ 滑輪（×0.3）
+                </button>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">有效 μ_eff = {fmt(muEff, 2)}</div>
+            </div>
+            <div>
+              <div className="text-sm font-medium text-slate-300 mb-1.5">操作模式（緊邊）</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button onClick={() => setTight('A')}
+                  className={`px-2 py-1.5 rounded text-xs ${tight==='A' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  ⬇ 垂降（A 端緊）
+                </button>
+                <button onClick={() => setTight('O')}
+                  className={`px-2 py-1.5 rounded text-xs ${tight==='O' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  ⬆ 拉升（O 端緊）
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs pt-1">
+              <button onClick={() => setCameraOn(!cameraOn)}
+                className={`px-3 py-1.5 rounded font-medium ${cameraOn ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
+                {cameraOn ? '⏹ 停止相機' : '📷 啟用相機 AR'}
+              </button>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-700 text-slate-200 cursor-pointer">
+                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
+              </label>
+              <button onClick={() => setFullscreen(true)}
+                className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
+                🖥 放大畫布
+              </button>
+              <button onClick={takeScreenshot}
+                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium">
+                📸 截圖
+              </button>
+              <button onClick={() => {
+                setAnchor({ x: W * 0.20, y: H * 0.78 });
+                setRedirect({ x: W * 0.50, y: H * 0.18 });
+                setOperator({ x: W * 0.80, y: H * 0.78 });
+              }} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200">重置</button>
+              {shotMsg && <span className="self-center text-emerald-400 font-medium">{shotMsg}</span>}
+            </div>
+            {cameraError && (
+              <div className="text-xs text-red-400 bg-red-950/40 border border-red-800 rounded p-2">{cameraError}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <ForceCard title="負載端張力 T_A" kN={data.T_A_kN}
+              colorClass="text-amber-400"
+              description="下方錨點 → 轉折點" />
+            <ForceCard title="操作端張力 T_O" kN={data.T_O_kN}
+              colorClass={data.T_O_kN < data.T_A_kN ? 'text-green-400' : 'text-red-400'}
+              description={tight === 'A' ? `↓ 比 T_A 少 ${fmt((1 - data.T_O_kN/data.T_A_kN)*100, 0)}%` : `↑ 比 T_A 多 ${fmt((data.T_O_kN/data.T_A_kN - 1)*100, 0)}%`} />
+          </div>
+          <ForceCard title="🌳 轉折點承受合力 R" kN={data.Rmag}
+            colorClass={data.Rmag > load_kN * 1.8 ? 'text-red-500' : 'text-orange-400'}
+            description={`為負載的 ${fmt(data.Rmag / load_kN, 2)} 倍 · 包覆角 θ = ${fmt(data.angleDeg, 0)}°`}
+            accent={data.Rmag > load_kN * 1.8} />
+          <NfpaBadge force_kN={data.Rmag} />
+          {geometryWarn && (
+            <div className="bg-orange-950/40 border border-orange-800 rounded p-2 text-xs text-orange-300">
+              ⚠ 轉折點 R 應在錨點 A 與操作端 O 上方才符合「高轉折」情境
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 互動畫布（含全螢幕模式） */}
+      <div className={fullscreen
+        ? 'fixed inset-0 z-50 bg-slate-950 flex flex-col'
+        : 'relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden'}>
+        {fullscreen && (
+          <div className="bg-slate-900/90 backdrop-blur px-3 py-2 flex justify-between items-center gap-2 border-b border-slate-700">
+            <span className="text-slate-200 font-bold text-sm">高轉折點受力分析 — 全螢幕模式</span>
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => setCameraOn(!cameraOn)}
+                className={`px-3 py-1.5 rounded text-xs font-medium ${cameraOn ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-200'}`}>
+                {cameraOn ? '⏹ 相機' : '📷 相機'}
+              </button>
+              <label className="flex items-center gap-1 px-3 py-1.5 rounded bg-slate-700 text-slate-200 text-xs cursor-pointer">
+                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
+              </label>
+              <button onClick={takeScreenshot}
+                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium">📸 截圖</button>
+              <button onClick={() => setFullscreen(false)}
+                className="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium">⏏ 退出</button>
+              {shotMsg && <span className="self-center text-emerald-400 text-xs">{shotMsg}</span>}
+            </div>
+          </div>
+        )}
+
+        <div className={fullscreen ? 'flex-1 flex items-center justify-center overflow-hidden' : 'relative'}>
+          <div className={fullscreen ? 'relative max-w-full max-h-full' : 'relative w-full'}
+            style={{ aspectRatio: `${W} / ${H}`, ...(fullscreen ? { width: 'min(100%, calc(100vh * 800 / 480))' } : {}) }}>
+            {cameraOn && (
+              <video ref={videoRef} autoPlay playsInline muted
+                className="absolute inset-0 w-full h-full object-cover" />
+            )}
+
+            <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
+              className="absolute inset-0 w-full h-full select-none touch-none z-10"
+              preserveAspectRatio="xMidYMid meet"
+              onPointerMove={onMove}
+              onPointerUp={() => setDrag(null)}
+              onPointerLeave={() => setDrag(null)}>
+
+              {/* 格線 */}
+              {showGrid && (
+                <g opacity={cameraOn ? 0.5 : 1}>
+                  {Array.from({ length: Math.ceil(W / GRID) + 1 }, (_, i) => (
+                    <line key={`gv${i}`} x1={i * GRID} y1={0} x2={i * GRID} y2={H}
+                      stroke={cameraOn ? '#22d3ee' : '#1e293b'} strokeWidth={i % 5 === 0 ? 1.2 : 0.5}
+                      strokeDasharray={i % 5 === 0 ? 'none' : '2 4'} />
+                  ))}
+                  {Array.from({ length: Math.ceil(H / GRID) + 1 }, (_, i) => (
+                    <line key={`gh${i}`} x1={0} y1={i * GRID} x2={W} y2={i * GRID}
+                      stroke={cameraOn ? '#22d3ee' : '#1e293b'} strokeWidth={i % 5 === 0 ? 1.2 : 0.5}
+                      strokeDasharray={i % 5 === 0 ? 'none' : '2 4'} />
+                  ))}
+                  <line x1={W/2 - 12} y1={H/2} x2={W/2 + 12} y2={H/2} stroke="#fbbf24" strokeWidth="1.5" />
+                  <line x1={W/2} y1={H/2 - 12} x2={W/2} y2={H/2 + 12} stroke="#fbbf24" strokeWidth="1.5" />
+                </g>
+              )}
+
+              {/* 繩索：A → R → O */}
+              <line x1={anchor.x} y1={anchor.y} x2={redirect.x} y2={redirect.y}
+                stroke="#f59e0b" strokeWidth="3.5" />
+              <line x1={redirect.x} y1={redirect.y} x2={operator.x} y2={operator.y}
+                stroke="#f59e0b" strokeWidth="3.5" />
+
+              {/* 包覆角 θ 弧 */}
+              {(() => {
+                const r = 38;
+                const ang1 = Math.atan2(data.uRA.y, data.uRA.x);
+                const ang2 = Math.atan2(data.uRO.y, data.uRO.x);
+                let delta = ang2 - ang1;
+                while (delta > Math.PI) delta -= 2 * Math.PI;
+                while (delta < -Math.PI) delta += 2 * Math.PI;
+                const sweep = delta > 0 ? 1 : 0;
+                const sx = redirect.x + r * Math.cos(ang1);
+                const sy = redirect.y + r * Math.sin(ang1);
+                const ex = redirect.x + r * Math.cos(ang2);
+                const ey = redirect.y + r * Math.sin(ang2);
+                return (
+                  <path d={`M ${sx} ${sy} A ${r} ${r} 0 0 ${sweep} ${ex} ${ey}`}
+                    fill="none" stroke="#c084fc" strokeWidth="2.5" />
+                );
+              })()}
+
+              {/* 沿繩索張力標籤 */}
+              <g>
+                <rect x={(anchor.x + redirect.x) / 2 - 60} y={(anchor.y + redirect.y) / 2 - 12}
+                  width="120" height="22" rx="4" fill="#451a03" stroke="#f59e0b" opacity="0.92" />
+                <text x={(anchor.x + redirect.x) / 2} y={(anchor.y + redirect.y) / 2 + 3}
+                  textAnchor="middle" fontSize="12" fill="#fbbf24" fontWeight="bold" fontFamily="monospace">
+                  T_A = {fmt(kNtoKgf(data.T_A_kN), 0)} kgf
+                </text>
+                <rect x={(redirect.x + operator.x) / 2 - 60} y={(redirect.y + operator.y) / 2 - 12}
+                  width="120" height="22" rx="4" fill="#451a03" stroke="#f59e0b" opacity="0.92" />
+                <text x={(redirect.x + operator.x) / 2} y={(redirect.y + operator.y) / 2 + 3}
+                  textAnchor="middle" fontSize="12" fill="#fbbf24" fontWeight="bold" fontFamily="monospace">
+                  T_O = {fmt(kNtoKgf(data.T_O_kN), 0)} kgf
+                </text>
+              </g>
+
+              {/* R 點承受合力箭頭 */}
+              {(() => {
+                const Rlen = Math.hypot(data.Rx, data.Ry) || 1;
+                const k = Math.min(120, data.Rmag * 50);
+                const tipX = redirect.x + (data.Rx / Rlen) * k;
+                const tipY = redirect.y + (data.Ry / Rlen) * k;
+                const ang = toDeg(Math.atan2(data.Ry, data.Rx));
+                return (
+                  <g>
+                    <line x1={redirect.x} y1={redirect.y} x2={tipX} y2={tipY} stroke="#ef4444" strokeWidth="5" />
+                    <polygon points="0,-7 14,0 0,7" fill="#ef4444"
+                      transform={`translate(${tipX},${tipY}) rotate(${ang})`} />
+                    <rect x={tipX + 12} y={tipY - 14} width="160" height="26" rx="4"
+                      fill="#fef2f2" stroke="#ef4444" strokeWidth="1.5" />
+                    <text x={tipX + 18} y={tipY + 4} fontSize="13" fill="#b91c1c" fontWeight="bold" fontFamily="monospace">
+                      R = {fmt(kNtoKgf(data.Rmag), 0)} kgf
+                    </text>
+                  </g>
+                );
+              })()}
+
+              {/* 角度標籤（最上層） */}
+              {(() => {
+                const r = 38;
+                const ang1 = Math.atan2(data.uRA.y, data.uRA.x);
+                const ang2 = Math.atan2(data.uRO.y, data.uRO.x);
+                let delta = ang2 - ang1;
+                while (delta > Math.PI) delta -= 2 * Math.PI;
+                while (delta < -Math.PI) delta += 2 * Math.PI;
+                const midAng = ang1 + delta / 2;
+                const labelX = redirect.x + (r + 32) * Math.cos(midAng);
+                const labelY = redirect.y + (r + 32) * Math.sin(midAng);
+                return (
+                  <g>
+                    <rect x={labelX - 38} y={labelY - 12} width="76" height="22" rx="4"
+                      fill="#1e1b4b" stroke="#c084fc" strokeWidth="1.5" opacity="0.95" />
+                    <text x={labelX} y={labelY + 4} textAnchor="middle"
+                      fontSize="13" fill="#c084fc" fontWeight="bold">
+                      θ = {fmt(data.angleDeg, 0)}°
+                    </text>
+                  </g>
+                );
+              })()}
+
+              {/* 下方錨點 A（藍色方塊） */}
+              <g onPointerDown={(e) => { e.target.setPointerCapture(e.pointerId); setDrag('A'); }}
+                className="cursor-grab active:cursor-grabbing">
+                <circle cx={anchor.x} cy={anchor.y} r="22" fill="transparent" />
+                <rect x={anchor.x - 16} y={anchor.y - 16} width="32" height="32" rx="3"
+                  fill="#3b82f6" stroke="#1e3a8a" strokeWidth="2" />
+                <text x={anchor.x} y={anchor.y + 5} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#fff">A</text>
+                <rect x={anchor.x - 50} y={anchor.y + 22} width="100" height="22" rx="3"
+                  fill="#1e3a8a" stroke="#fff" strokeWidth="1" />
+                <text x={anchor.x} y={anchor.y + 37} textAnchor="middle" fontSize="11" fill="#fff" fontFamily="monospace" fontWeight="bold">
+                  載重 {load_kgf} kgf
+                </text>
+              </g>
+
+              {/* 高轉折點 R（依類型顯示不同圖示） */}
+              <g onPointerDown={(e) => { e.target.setPointerCapture(e.pointerId); setDrag('R'); }}
+                className="cursor-grab active:cursor-grabbing">
+                <circle cx={redirect.x} cy={redirect.y} r="26" fill="transparent" />
+                {pulleyType === 'tree' && (
+                  <g>
+                    <ellipse cx={redirect.x} cy={redirect.y - 18} rx="20" ry="14" fill="#15803d" />
+                    <ellipse cx={redirect.x - 10} cy={redirect.y - 22} rx="14" ry="10" fill="#16a34a" />
+                    <ellipse cx={redirect.x + 10} cy={redirect.y - 22} rx="14" ry="10" fill="#16a34a" />
+                    <rect x={redirect.x - 4} y={redirect.y - 4} width="8" height="20" fill="#78350f" />
+                    <circle cx={redirect.x} cy={redirect.y} r="6" fill="#451a03" />
+                  </g>
+                )}
+                {pulleyType === 'carabiner' && (
+                  <g>
+                    <path d={`M ${redirect.x - 12} ${redirect.y - 14}
+                              C ${redirect.x - 18} ${redirect.y - 14}, ${redirect.x - 18} ${redirect.y + 10}, ${redirect.x - 12} ${redirect.y + 14}
+                              L ${redirect.x + 12} ${redirect.y + 14}
+                              C ${redirect.x + 18} ${redirect.y + 14}, ${redirect.x + 18} ${redirect.y - 14}, ${redirect.x + 12} ${redirect.y - 14} Z`}
+                      fill="none" stroke="#0ea5e9" strokeWidth="3.5" />
+                    <line x1={redirect.x - 8} y1={redirect.y - 14} x2={redirect.x + 8} y2={redirect.y - 14}
+                      stroke="#0ea5e9" strokeWidth="2" />
+                  </g>
+                )}
+                {pulleyType === 'pulley' && (
+                  <g>
+                    <circle cx={redirect.x} cy={redirect.y} r="14" fill="#cbd5e1" stroke="#475569" strokeWidth="3" />
+                    <circle cx={redirect.x} cy={redirect.y} r="8" fill="#94a3b8" stroke="#334155" strokeWidth="1" />
+                    <circle cx={redirect.x} cy={redirect.y} r="2.5" fill="#0f172a" />
+                    <line x1={redirect.x - 14} y1={redirect.y} x2={redirect.x + 14} y2={redirect.y} stroke="#475569" strokeWidth="0.8" />
+                  </g>
+                )}
+                <text x={redirect.x} y={redirect.y + 42} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#22c55e">
+                  R 轉折點
+                </text>
+              </g>
+
+              {/* 操作端 O（橙色） */}
+              <g onPointerDown={(e) => { e.target.setPointerCapture(e.pointerId); setDrag('O'); }}
+                className="cursor-grab active:cursor-grabbing">
+                <circle cx={operator.x} cy={operator.y} r="22" fill="transparent" />
+                <circle cx={operator.x} cy={operator.y} r="14" fill="#fb923c" stroke="#7c2d12" strokeWidth="2" />
+                <text x={operator.x} y={operator.y + 5} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#fff">O</text>
+                <text x={operator.x} y={operator.y + 32} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#fb923c">
+                  操作端
+                </text>
+              </g>
+
+              {/* 圖例 */}
+              <g transform="translate(10, 10)">
+                <rect x="0" y="0" width="220" height="76" rx="6"
+                  fill={cameraOn ? 'rgba(15,23,42,0.7)' : 'rgba(2,6,23,0.85)'}
+                  stroke="#475569" strokeWidth="1" />
+                <text x="8" y="16" fontSize="11" fill="#cbd5e1" fontWeight="bold">圖例</text>
+                <line x1="8" y1="28" x2="28" y2="28" stroke="#f59e0b" strokeWidth="3" />
+                <text x="34" y="31" fontSize="10" fill="#cbd5e1">繩索</text>
+                <line x1="100" y1="28" x2="120" y2="28" stroke="#ef4444" strokeWidth="3" />
+                <text x="126" y="31" fontSize="10" fill="#cbd5e1">轉折點合力 R</text>
+                <line x1="8" y1="42" x2="28" y2="42" stroke="#c084fc" strokeWidth="2" />
+                <text x="34" y="45" fontSize="10" fill="#cbd5e1">包覆角 θ</text>
+                <text x="100" y="45" fontSize="10" fill="#94a3b8">μ_eff = {fmt(muEff, 2)}</text>
+                <text x="8" y="62" fontSize="9" fill="#94a3b8">A 載重 · R 轉折 · O 操作</text>
+                <text x="8" y="74" fontSize="9" fill="#94a3b8">緊邊：{tight === 'A' ? '⬇ 垂降' : '⬆ 拉升'}</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================
 // 主應用
 // ========================================================================
 function App() {
@@ -1586,6 +2117,7 @@ function App() {
     { id: 4, name: '5. 變向固定點',     icon: 'arrowDown', comp: <DirectionalAnchorModule /> },
     { id: 5, name: '6. 拉力夾角模擬',   icon: 'anchor',    comp: <AnchorPullAngleModule /> },
     { id: 6, name: '7. 機械倍力 MA',    icon: 'cog',       comp: <MAModule /> },
+    { id: 7, name: '8. 高轉折點分析',   icon: 'triangle',  comp: <RedirectAnalysisModule /> },
   ];
 
   return (
