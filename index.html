@@ -2128,6 +2128,600 @@ function RedirectAnalysisModule() {
 }
 
 // ========================================================================
+// 模組 9：EN 認證規範速查（依器材類別整理）
+// ========================================================================
+const EN_DATA = {
+  ropes: {
+    title: '繩索',
+    titleEn: 'Ropes',
+    icon: '🪢',
+    color: 'amber',
+    standards: [
+      {
+        code: 'EN 892',
+        title: '動態山岳攀登繩',
+        titleEn: 'Dynamic Mountaineering Ropes',
+        scope: '攀岩、登山專用，必須能在墜落時吸收衝擊能量',
+        types: [
+          { name: '單繩 (Single ①)', desc: '直徑 8.9–11mm，可獨立使用，最常見' },
+          { name: '半繩 (Half ½)', desc: '需成對使用，分掛兩個保護點，適合冰攀/長路線' },
+          { name: '雙繩 (Twin ∞)', desc: '雙繩同時掛同一保護點，常見於阿爾卑斯式攀登' },
+        ],
+        tests: [
+          { item: '最大衝擊力', value: '≤ 12 kN (1224 kgf)', note: '單繩 80kg / 雙繩 80kg / 半繩 55kg 測試' },
+          { item: '標準墜落係數', value: 'FF = 1.77', note: 'UIAA 動態測試' },
+          { item: '通過墜落次數', value: '≥ 5 次', note: '不可斷裂' },
+          { item: '靜態伸長率', value: '≤ 8% (單繩) / ≤ 12% (半繩)', note: '80 kg 載重' },
+          { item: '外皮滑移', value: '≤ 20 mm/2m', note: '結構完整性測試' },
+        ],
+        notes: '彈性繩本質是「能量吸收器」，不適合救援拖拉系統使用。標準 ① ½ ∞ 標誌會印在繩端標籤上。',
+      },
+      {
+        code: 'EN 1891',
+        title: '低伸長率芯鞘繩（半靜力繩）',
+        titleEn: 'Low Stretch Kernmantel Ropes',
+        scope: '工業繩索作業、繩索救援、洞穴探勘、技術下降使用',
+        types: [
+          { name: 'Type A', desc: '直徑 ≥ 10 mm，一般救援/工作用，強度高' },
+          { name: 'Type B', desc: '直徑 8.5–12 mm，特殊輕量用途，強度較低' },
+        ],
+        tests: [
+          { item: '靜態強度（無打結）', value: 'Type A ≥ 22 kN · Type B ≥ 18 kN' },
+          { item: '靜態強度（含 8 字結）', value: 'Type A ≥ 15 kN · Type B ≥ 12 kN' },
+          { item: '最大伸長率', value: '≤ 5%', note: '50–150 kg 載重' },
+          { item: '動態衝擊測試', value: 'FF=0.3 三次墜落不斷', note: '100 kg 測試' },
+          { item: '外皮滑移', value: '≤ 40 mm/2m' },
+          { item: '繩芯結合力', value: '繩芯與外皮黏結強度測試' },
+        ],
+        notes: '「半靜力繩」在 NFPA 標準中對應 G/T-rated。**禁止用於攀登動態保護**（無法吸收墜落衝擊）。',
+      },
+    ],
+  },
+  connectors: {
+    title: '鉤環/連接器',
+    titleEn: 'Carabiners',
+    icon: '⛓',
+    color: 'sky',
+    standards: [
+      {
+        code: 'EN 12275',
+        title: '登山連接器（鉤環）',
+        titleEn: 'Mountaineering Connectors',
+        scope: '攀登/登山運動使用的鉤環',
+        types: [
+          { name: 'Type B (Basic)', desc: '一般用途，最常見' },
+          { name: 'Type H (HMS)', desc: '梨型，專為義大利結 (Munter) 設計' },
+          { name: 'Type K (Klettersteig)', desc: '攀岩鐵道專用，強化開門強度' },
+          { name: 'Type X (Oval)', desc: '橢圓形，輔助器材/滑輪用' },
+          { name: 'Type D (Directional)', desc: '受力方向鎖定型' },
+          { name: 'Type Q (Screw link)', desc: '螺旋連接環，永久連接用' },
+          { name: 'Type A (Anchor)', desc: '錨點連接器，特定方向受力' },
+        ],
+        tests: [
+          { item: '主軸（縱向）強度', value: 'Type B/H ≥ 20 kN · Type K ≥ 25 kN · Type Q ≥ 25 kN' },
+          { item: '副軸（橫向）強度', value: '≥ 7 kN（Type Q ≥ 10 kN）' },
+          { item: '開門狀態強度', value: '≥ 7 kN（Type H 6 kN · Type K 8 kN）' },
+          { item: '開門功能', value: '8000 次循環測試' },
+          { item: '閘門開啟力', value: '可手動操作' },
+        ],
+        notes: '主軸強度數字（kN）必須**永久刻印於本體**。Type 字母通常標於閘門或本體側邊。',
+      },
+      {
+        code: 'EN 362',
+        title: '個人防墜系統連接器',
+        titleEn: 'Personal Fall Protection Connectors',
+        scope: '工業高空作業、墜落保護用，要求比 EN 12275 嚴格',
+        types: [
+          { name: 'Class A (Anchor)', desc: '錨點專用連接器' },
+          { name: 'Class B (Basic)', desc: '基本連接器' },
+          { name: 'Class M (Multi-use)', desc: '多用途連接器，主副軸都需高強度' },
+          { name: 'Class T (Termination)', desc: '終端連接器，特定方向受力' },
+          { name: 'Class Q (Screw)', desc: '螺旋鎖環' },
+        ],
+        tests: [
+          { item: '主軸強度', value: '≥ 20 kN（多數類別）· Class M/Q ≥ 25 kN' },
+          { item: '副軸強度', value: 'Class M ≥ 15 kN' },
+          { item: '閘門必須自動上鎖', value: '不可手動鎖（與 EN 12275 不同）' },
+          { item: '雙動作開啟', value: '至少需要兩個獨立動作才能打開閘門' },
+        ],
+        notes: '**工業/救援用必須選 EN 362**（不可只有 EN 12275）。CE 後的 4 位數字是通報機構編號。',
+      },
+    ],
+  },
+  harness: {
+    title: '安全帶',
+    titleEn: 'Harnesses',
+    icon: '🎽',
+    color: 'rose',
+    standards: [
+      {
+        code: 'EN 12277',
+        title: '登山安全帶',
+        titleEn: 'Mountaineering Harnesses',
+        scope: '攀登運動用',
+        types: [
+          { name: 'Type A', desc: '全身式（含胸帶 + 坐帶）' },
+          { name: 'Type B', desc: '小型全身式（兒童 / 體重 < 40kg）' },
+          { name: 'Type C', desc: '坐式安全帶（最常見）' },
+          { name: 'Type D', desc: '胸式安全帶（需配合坐帶使用）' },
+          { name: 'Type E', desc: '身體固定帶（救援用，被救者穿戴）' },
+        ],
+        tests: [
+          { item: '靜態強度', value: '≥ 15 kN · 維持 3 分鐘不破損' },
+          { item: '動態墜落測試', value: 'FF=1.7（80kg）· 模擬倒掛 10 分鐘無滑脫' },
+          { item: '掛點縫線結構', value: '主掛點需特殊強化' },
+        ],
+      },
+      {
+        code: 'EN 361',
+        title: '墜落制止全身式安全帶',
+        titleEn: 'Full Body Harness for Fall Arrest',
+        scope: '工業墜落保護專用，**必備**才能配 EN 355 緩衝器',
+        tests: [
+          { item: '靜態強度', value: '≥ 15 kN · 3 分鐘維持' },
+          { item: '動態測試', value: '100 kg 重物 4m 自由墜落，安全帶不破損' },
+          { item: '主掛點', value: '背部 D 環（dorsal）+ 胸部（sternal）' },
+          { item: '掛點標識', value: 'A 字母標示掛點，A/2 表示需與另一 A/2 共用' },
+        ],
+        notes: '工業/救援必備。坐帶 (EN 813) 不能單獨用於墜落制止，必須搭配 EN 361 全身式。',
+      },
+      {
+        code: 'EN 813',
+        title: '坐式安全帶（工作定位）',
+        titleEn: 'Sit Harness for Work Positioning',
+        scope: '高空作業、繩索進入、工作定位專用',
+        tests: [
+          { item: '靜態強度', value: '腹部掛點 ≥ 15 kN' },
+          { item: '懸吊測試', value: '單獨懸吊 100kg / 30 分鐘' },
+          { item: '腹部掛點', value: '繩索進入專用（IRATA / SPRAT 教學）' },
+        ],
+        notes: '常與 EN 361 合一販售（如 Petzl Avao Bod）。**單獨使用不能用於墜落制止**。',
+      },
+      {
+        code: 'EN 358',
+        title: '工作定位帶',
+        titleEn: 'Work Positioning Belt',
+        scope: '工作定位、限制墜落（防止抵達墜落邊緣）',
+        tests: [
+          { item: '靜態強度', value: '≥ 15 kN' },
+          { item: '側邊掛點', value: '兩側 D 環，配合定位繩使用' },
+        ],
+        notes: '**僅限定位/限制，不能用於墜落制止**。墜落距離若 > 0.5m 必須加裝 EN 355 緩衝器。',
+      },
+    ],
+  },
+  helmet: {
+    title: '頭盔',
+    titleEn: 'Helmets',
+    icon: '⛑',
+    color: 'orange',
+    standards: [
+      {
+        code: 'EN 12492',
+        title: '登山者頭盔',
+        titleEn: 'Helmets for Mountaineers',
+        scope: '攀岩、登山、繩索救援',
+        tests: [
+          { item: '頂部撞擊', value: '5kg / 2m 自由落下，傳遞至假人頸部 ≤ 10 kN' },
+          { item: '前/後/側撞擊', value: '5kg / 0.5m，傳遞力 ≤ 10 kN' },
+          { item: '貫穿測試', value: '1.5kg 尖錐 / 1m 落下，不貫穿至頭模' },
+          { item: '繫帶強度', value: '≥ 50 N · 撕裂力 ≥ 250 N' },
+          { item: '繫帶滑落', value: '前傾測試後不可脫落' },
+        ],
+        notes: '繩索作業/救援標準頭盔。具側邊與後方衝擊吸收能力，與工業頭盔 EN 397 不同。',
+      },
+      {
+        code: 'EN 397',
+        title: '工業安全頭盔',
+        titleEn: 'Industrial Safety Helmets',
+        scope: '建築工地、一般工業墜物保護',
+        tests: [
+          { item: '頂部撞擊', value: '5kg / 1m 落下，傳遞 ≤ 5 kN' },
+          { item: '貫穿測試', value: '3kg 尖錐 / 1m，不貫穿' },
+          { item: '繫帶（選配）', value: '在 150–250 N 範圍內鬆脫（防勒頸）' },
+        ],
+        notes: '**主要保護頂部墜物**，側邊與後方無強制要求。**不適合繩索作業/救援**（容易在倒立或側撞時脫落）。',
+      },
+    ],
+  },
+  slings: {
+    title: '扁帶/繩環',
+    titleEn: 'Tapes & Slings',
+    icon: '🎀',
+    color: 'purple',
+    standards: [
+      {
+        code: 'EN 565',
+        title: '織帶（扁帶素材）',
+        titleEn: 'Tape',
+        scope: '織造扁帶素材，後續加工為繩環/快扣等',
+        tests: [
+          { item: '最小斷裂強度', value: '≥ 22 kN' },
+        ],
+      },
+      {
+        code: 'EN 566',
+        title: '成品繩環',
+        titleEn: 'Slings',
+        scope: '完成的縫合繩環、扁帶環',
+        tests: [
+          { item: '最小斷裂強度', value: '≥ 22 kN' },
+          { item: '老化測試', value: 'UV / 溫度循環後仍維持強度' },
+        ],
+        notes: '通常標示 22 kN，相當於 ≈ 2240 kgf。Dyneema 細扁帶因熔點低（~150°C），不可與摩擦熱接觸。',
+      },
+    ],
+  },
+  lanyards: {
+    title: '連接繩/緩衝器',
+    titleEn: 'Lanyards & Energy Absorbers',
+    icon: '🪢',
+    color: 'cyan',
+    standards: [
+      {
+        code: 'EN 354',
+        title: '連接繩（Lanyard）',
+        titleEn: 'Lanyards',
+        scope: '個人保護系統的連接元件（不含緩衝功能）',
+        tests: [
+          { item: '靜態強度', value: '≥ 22 kN（含末端）' },
+          { item: '長度限制', value: '≤ 2 m（成品總長）' },
+        ],
+        notes: '**單獨使用不能墜落制止**，必須搭配 EN 355 緩衝器。',
+      },
+      {
+        code: 'EN 355',
+        title: '能量吸收緩衝器',
+        titleEn: 'Energy Absorbers',
+        scope: '吸收墜落衝擊力，防止人體與設備受損',
+        tests: [
+          { item: '最大制動力', value: '≤ 6 kN (612 kgf)', note: '人體可承受極限' },
+          { item: '最大延伸距離', value: '≤ 1.75 m', note: '緩衝器撕開後總長' },
+          { item: '測試載重', value: '100 kg / 4m 自由墜落', note: 'FF=2 模擬' },
+        ],
+        notes: '撕裂式緩衝器（tear-out）一旦觸發必須**整組更換**。墜落距離計算必須加上 1.75m + 連接繩長。',
+      },
+      {
+        code: 'EN 360',
+        title: '自鎖式防墜器（Retractable）',
+        titleEn: 'Retractable Type Fall Arrester',
+        scope: '可伸縮鋼索/織帶，自動鎖定墜落',
+        tests: [
+          { item: '鎖定速度', value: '通常 1.5 m/s 內鎖定' },
+          { item: '最大制動力', value: '≤ 6 kN' },
+          { item: '靜態強度', value: '≥ 12 kN' },
+          { item: '動態測試', value: '100 kg / 0.6 m 模擬墜落' },
+        ],
+      },
+    ],
+  },
+  ascDesc: {
+    title: '上升下降器',
+    titleEn: 'Ascenders & Descenders',
+    icon: '⬆',
+    color: 'emerald',
+    standards: [
+      {
+        code: 'EN 567',
+        title: '繩索抓握器（上升器）',
+        titleEn: 'Rope Clamps / Ascenders',
+        scope: '繩索上升、Z-rig 倍力系統的抓繩器',
+        tests: [
+          { item: '工作載重測試', value: '4 kN 不損傷繩索' },
+          { item: '靜態強度', value: '通過 5 kN 載重不滑脫（10 kN 容許繩索損傷）' },
+        ],
+        notes: '**禁止用於墜落制止**（牙齒會切斷繩索）。掉落係數 > 0.3 即可能損繩。',
+      },
+      {
+        code: 'EN 12841',
+        title: '繩索調整裝置',
+        titleEn: 'Rope Adjustment Devices',
+        scope: '工業繩索進入專用，依用途分三型',
+        types: [
+          { name: 'Type A 安全繩備援', desc: '安全繩上的防墜備援，必須能夾繩 + 限制衝擊力 < 6 kN' },
+          { name: 'Type B 工作繩上升器', desc: '工作繩上升用，承載 30–140 kg' },
+          { name: 'Type C 工作繩下降器', desc: '工作繩下降用，承載 30–200 kg' },
+        ],
+        tests: [
+          { item: 'Type A 制動力', value: '≤ 6 kN（含繩索與裝置）' },
+          { item: 'Type A 靜載', value: '15 kN / 3 分鐘無破損' },
+          { item: 'Type C 工作載重', value: '依規格 30–200 kg 連續使用' },
+          { item: 'Type C 制動測試', value: '0.5 m 自由墜落 + 動態鎖定' },
+        ],
+        notes: 'IRATA / SPRAT 雙繩系統強制要求：工作繩用 Type B/C + 安全繩用 Type A，**兩者不可省略其一**。',
+      },
+      {
+        code: 'EN 341',
+        title: '救援下降器',
+        titleEn: 'Descender Devices for Rescue',
+        scope: '緊急逃生與救援下降專用',
+        types: [
+          { name: 'Class A', desc: '高耐用，30–150 kg，下降高度 ≤ 200m' },
+          { name: 'Class B', desc: '30–100 kg，≤ 100m' },
+          { name: 'Class C', desc: '30–100 kg，≤ 30m' },
+          { name: 'Class D', desc: '低耐用，≤ 30m，僅單次使用' },
+        ],
+        tests: [
+          { item: '能量耗散', value: '依 Class 計算 W = m·g·h 容許值' },
+          { item: '溫度安全', value: '裝置外殼不可導致繩索熔化' },
+        ],
+      },
+    ],
+  },
+  pulley: {
+    title: '滑輪',
+    titleEn: 'Pulleys',
+    icon: '⚙',
+    color: 'indigo',
+    standards: [
+      {
+        code: 'EN 12278',
+        title: '攀登/救援用滑輪',
+        titleEn: 'Pulleys',
+        scope: '繩索倍力系統、變向用滑輪',
+        tests: [
+          { item: '單繩滑輪最低強度', value: '≥ 12 kN（軸向）' },
+          { item: '雙繩滑輪', value: '≥ 24 kN' },
+          { item: '繩槽寬度', value: '相容指定繩徑範圍' },
+          { item: '效率（選配標示）', value: '球軸承 ≥ 90% · 一般軸 ≥ 70%' },
+        ],
+        notes: '**鉤環當滑輪用效率僅 ~50%**（高摩擦），救援拖拉應使用真正的滑輪。Prusik 不可放在滑輪繩槽內（會損傷）。',
+      },
+    ],
+  },
+  anchor: {
+    title: '錨點裝置',
+    titleEn: 'Anchor Devices',
+    icon: '⚓',
+    color: 'red',
+    standards: [
+      {
+        code: 'EN 795',
+        title: '錨點裝置',
+        titleEn: 'Anchor Devices',
+        scope: '個人防墜系統的固定錨點',
+        types: [
+          { name: 'Type A', desc: '永久型固定錨點（牆面螺栓、地面螺栓）' },
+          { name: 'Type B', desc: '臨時型可攜帶錨點（門框繩環、配重式等）' },
+          { name: 'Type C', desc: '柔性水平救生繩（鋼索水平索）' },
+          { name: 'Type D', desc: '剛性水平軌道' },
+          { name: 'Type E', desc: '配重型錨點（不需鑽孔）' },
+        ],
+        tests: [
+          { item: '金屬錨點靜載', value: '≥ 12 kN / 3 分鐘' },
+          { item: '非金屬錨點靜載', value: '≥ 18 kN / 3 分鐘' },
+          { item: '動態墜落測試', value: '100 kg 模擬 FF=2 墜落不脫落' },
+          { item: 'Type C/D 撓度測試', value: '水平索墜落後撓度限制' },
+        ],
+        notes: 'Type B 可攜帶式（如 Petzl Connexion Fixe）方便消防/救援臨時架設。Type A 需專業安裝與年度檢驗。',
+      },
+    ],
+  },
+};
+
+function StandardCard({ std, color, expanded, onToggle }) {
+  const colorMap = {
+    amber: 'border-amber-700/50 bg-amber-950/20',
+    sky: 'border-sky-700/50 bg-sky-950/20',
+    rose: 'border-rose-700/50 bg-rose-950/20',
+    orange: 'border-orange-700/50 bg-orange-950/20',
+    purple: 'border-purple-700/50 bg-purple-950/20',
+    cyan: 'border-cyan-700/50 bg-cyan-950/20',
+    emerald: 'border-emerald-700/50 bg-emerald-950/20',
+    indigo: 'border-indigo-700/50 bg-indigo-950/20',
+    red: 'border-red-700/50 bg-red-950/20',
+  };
+  const codeColor = {
+    amber: 'text-amber-300', sky: 'text-sky-300', rose: 'text-rose-300',
+    orange: 'text-orange-300', purple: 'text-purple-300', cyan: 'text-cyan-300',
+    emerald: 'text-emerald-300', indigo: 'text-indigo-300', red: 'text-red-300',
+  };
+  return (
+    <div className={`border rounded-xl overflow-hidden ${colorMap[color]}`}>
+      <button onClick={onToggle}
+        className="w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-white/5 transition-colors">
+        <span className={`font-mono font-bold text-lg ${codeColor[color]}`}>{std.code}</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-slate-100">{std.title}</div>
+          <div className="text-xs text-slate-400 mt-0.5">{std.titleEn}</div>
+          <div className="text-xs text-slate-300 mt-1.5 leading-relaxed">{std.scope}</div>
+        </div>
+        <span className="text-slate-400 text-sm shrink-0">{expanded ? '▼' : '▶'}</span>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-3 border-t border-slate-700/50 pt-3">
+          {std.types && std.types.length > 0 && (
+            <div>
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">分類 / Sub-types</div>
+              <div className="space-y-1.5">
+                {std.types.map((t, i) => (
+                  <div key={i} className="text-sm bg-slate-950/40 rounded p-2 border border-slate-800">
+                    <span className={`font-bold ${codeColor[color]}`}>{t.name}</span>
+                    <span className="text-slate-300 ml-2">{t.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">測試要求 / Key Tests</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <tbody>
+                  {std.tests.map((t, i) => (
+                    <tr key={i} className="border-b border-slate-800/50">
+                      <td className="py-1.5 pr-3 text-slate-400 align-top whitespace-nowrap">{t.item}</td>
+                      <td className="py-1.5 pr-3 font-mono text-slate-100 align-top">{t.value}</td>
+                      {t.note && <td className="py-1.5 text-slate-500 align-top text-[11px]">{t.note}</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {std.notes && (
+            <div className="text-xs bg-slate-900/60 border border-slate-700/50 rounded p-2.5 text-slate-300 leading-relaxed">
+              💡 {std.notes}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ENCertModule() {
+  const [activeCategory, setActiveCategory] = useState('ropes');
+  const [expanded, setExpanded] = useState(() => new Set());
+
+  const toggle = (code) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    const cat = EN_DATA[activeCategory];
+    setExpanded(new Set(cat.standards.map(s => s.code)));
+  };
+  const collapseAll = () => setExpanded(new Set());
+
+  const cat = EN_DATA[activeCategory];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-100 mb-2">9. EN 認證規範速查</h2>
+        <p className="text-slate-400 text-sm leading-relaxed">
+          歐洲標準（European Norm，EN）對繩索救援與高空作業器材的認證規範。
+          所有 PPE 個人防護器材在歐盟銷售必須通過對應 EN 標準並取得 <strong className="text-blue-300">CE 認證</strong>，
+          標示格式為 <code className="text-blue-300 bg-slate-800 px-1 rounded">CE 0123</code>（後 4 位為通報機構編號）。
+        </p>
+        <p className="text-xs text-amber-300 bg-amber-950/30 border border-amber-800/40 rounded p-2 mt-2">
+          ⚠ 本資料僅供教學參考。採購器材時請以製造商提供的官方 CE 聲明書與最新版 EN 規範為準。
+        </p>
+      </div>
+
+      {/* 類別導航 */}
+      <div className="flex flex-wrap gap-1.5">
+        {Object.entries(EN_DATA).map(([key, c]) => (
+          <button key={key}
+            onClick={() => { setActiveCategory(key); setExpanded(new Set()); }}
+            className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
+              activeCategory === key
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}>
+            <span className="text-base">{c.icon}</span>
+            <span>{c.title}</span>
+            <span className="text-[10px] opacity-70 font-mono">({c.standards.length})</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 展開/收合控制 */}
+      <div className="flex justify-between items-center text-xs">
+        <div className="text-slate-400">
+          <span className="font-bold text-slate-200">{cat.title}</span> · {cat.titleEn} · 共 {cat.standards.length} 項標準
+        </div>
+        <div className="flex gap-2">
+          <button onClick={expandAll}
+            className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">展開全部</button>
+          <button onClick={collapseAll}
+            className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">收合全部</button>
+        </div>
+      </div>
+
+      {/* 標準列表 */}
+      <div className="space-y-3">
+        {cat.standards.map(std => (
+          <StandardCard key={std.code} std={std} color={cat.color}
+            expanded={expanded.has(std.code)} onToggle={() => toggle(std.code)} />
+        ))}
+      </div>
+
+      {/* 通用 CE 標識說明 */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 mt-4">
+        <h3 className="text-sm font-bold text-slate-200 mb-3">📋 CE 標識通用判讀</h3>
+        <div className="grid md:grid-cols-2 gap-3 text-xs">
+          <div className="bg-slate-950/60 rounded p-3 border border-slate-800">
+            <div className="font-bold text-blue-300 mb-1">CE + 4 位數字</div>
+            <div className="text-slate-300">例：<code className="bg-slate-800 px-1 rounded">CE 0123</code> 代表通過 TÜV SÜD（編號 0123）公告機構認證</div>
+          </div>
+          <div className="bg-slate-950/60 rounded p-3 border border-slate-800">
+            <div className="font-bold text-blue-300 mb-1">EN 編號 + Type / Class</div>
+            <div className="text-slate-300">例：<code className="bg-slate-800 px-1 rounded">EN 12275:2013 / B</code> 代表 2013 版的 Basic 類鉤環</div>
+          </div>
+          <div className="bg-slate-950/60 rounded p-3 border border-slate-800">
+            <div className="font-bold text-blue-300 mb-1">UIAA 認證（攀登器材）</div>
+            <div className="text-slate-300">獨立於 EN 之外的攀登運動國際認證，常與 EN 並列</div>
+          </div>
+          <div className="bg-slate-950/60 rounded p-3 border border-slate-800">
+            <div className="font-bold text-blue-300 mb-1">製造批號 / 出廠日</div>
+            <div className="text-slate-300">用於追溯與檢驗週期管理（PPE 通常 5–10 年壽命）</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 對照表 */}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
+        <h3 className="text-sm font-bold text-slate-200 mb-3">🌐 EN vs NFPA / ANSI 對照</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="text-slate-400 border-b border-slate-700">
+              <tr>
+                <th className="px-2 py-2 text-left">器材</th>
+                <th className="px-2 py-2 text-left">歐洲 (EN)</th>
+                <th className="px-2 py-2 text-left">美國 (NFPA / ANSI)</th>
+                <th className="px-2 py-2 text-left">主要差異</th>
+              </tr>
+            </thead>
+            <tbody className="text-slate-300">
+              <tr className="border-b border-slate-800/50">
+                <td className="px-2 py-2 font-medium">繩索（救援）</td>
+                <td className="px-2 py-2 font-mono">EN 1891 Type A</td>
+                <td className="px-2 py-2 font-mono">NFPA 1983 G/T-rated</td>
+                <td className="px-2 py-2 text-slate-400">NFPA 強度更高（G 40 kN vs EN A 22 kN）</td>
+              </tr>
+              <tr className="border-b border-slate-800/50">
+                <td className="px-2 py-2 font-medium">鉤環</td>
+                <td className="px-2 py-2 font-mono">EN 362 / EN 12275</td>
+                <td className="px-2 py-2 font-mono">NFPA 1983 + ANSI Z359.12</td>
+                <td className="px-2 py-2 text-slate-400">NFPA G 要求 ≥ 36 kN（vs EN ≥ 20 kN）</td>
+              </tr>
+              <tr className="border-b border-slate-800/50">
+                <td className="px-2 py-2 font-medium">安全帶（墜落）</td>
+                <td className="px-2 py-2 font-mono">EN 361</td>
+                <td className="px-2 py-2 font-mono">ANSI Z359.11</td>
+                <td className="px-2 py-2 text-slate-400">掛點數量與位置標準不同</td>
+              </tr>
+              <tr className="border-b border-slate-800/50">
+                <td className="px-2 py-2 font-medium">緩衝器</td>
+                <td className="px-2 py-2 font-mono">EN 355 (≤6 kN)</td>
+                <td className="px-2 py-2 font-mono">ANSI Z359.13 (≤8 kN)</td>
+                <td className="px-2 py-2 text-slate-400">ANSI 容許較高制動力</td>
+              </tr>
+              <tr>
+                <td className="px-2 py-2 font-medium">頭盔</td>
+                <td className="px-2 py-2 font-mono">EN 12492</td>
+                <td className="px-2 py-2 font-mono">NFPA 1951 / ANSI Z89.1</td>
+                <td className="px-2 py-2 text-slate-400">NFPA 1951 含耐高溫測試</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================================================
 // 主應用
 // ========================================================================
 function App() {
@@ -2184,6 +2778,7 @@ function App() {
     { id: 5, name: '6. 拉力夾角模擬',   icon: 'anchor',    comp: <AnchorPullAngleModule /> },
     { id: 6, name: '7. 機械倍力 MA',    icon: 'cog',       comp: <MAModule /> },
     { id: 7, name: '8. 高轉折點分析',   icon: 'triangle',  comp: <RedirectAnalysisModule /> },
+    { id: 8, name: '9. EN 認證規範',     icon: 'info',      comp: <ENCertModule /> },
   ];
 
   return (
