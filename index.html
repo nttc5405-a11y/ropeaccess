@@ -218,39 +218,38 @@ const NumberCard = ({ title, value, unit, colorClass = 'text-white', description
   </div>
 );
 
-// NFPA 安全係數徽章
+// NFPA 安全係數徽章（精簡版）
 const NfpaBadge = ({ force_kN }) => {
   const [rating, setRating] = useState('G_RATED');
   const r = NFPA[rating];
   const e = evalNfpa(force_kN, rating);
   return (
-    <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-4 space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="text-xs uppercase tracking-wider text-slate-400">NFPA 1983 安全驗算</span>
-        <div className="flex gap-1 text-xs">
-          {Object.keys(NFPA).map(k => (
-            <button key={k}
-              onClick={() => setRating(k)}
-              className={`px-2 py-1 rounded font-medium transition-colors ${rating===k ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
-              {k.split('_')[0]}
-            </button>
-          ))}
+    <div className="bg-slate-800/40 border border-slate-700 rounded-lg px-2.5 py-2 space-y-1.5">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">NFPA 1983</span>
+          <div className="flex gap-0.5">
+            {Object.keys(NFPA).map(k => (
+              <button key={k}
+                onClick={() => setRating(k)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${rating===k ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                title={NFPA[k].name}>
+                {k.split('_')[0]}
+              </button>
+            ))}
+          </div>
         </div>
+        <span className={`text-[11px] font-mono ${e.color}`}>{e.text}</span>
       </div>
-      <div className="text-xs text-slate-400">
-        <span className="font-medium text-slate-200">{r.name}</span> · MBS {fmt(kNtoKgf(r.mbs_kN), 0)} kgf · 設計係數 {r.ratio}:1 · {r.persons} 人載重
-      </div>
-      <div className={`text-sm font-mono ${e.color}`}>{e.text}</div>
-      <div className="w-full h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
         <div className="h-full transition-all" style={{
           width: `${Math.min(100, (force_kN / r.mbs_kN) * 100)}%`,
           background: e.level==='pass' ? '#22c55e' : e.level==='warn' ? '#eab308' : e.level==='fail' ? '#f97316' : '#ef4444',
         }} />
       </div>
-      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-        <span>0</span>
-        <span>SWL {fmt(kNtoKgf(r.swl_kN), 0)} kgf</span>
-        <span>MBS {fmt(kNtoKgf(r.mbs_kN), 0)} kgf</span>
+      <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+        <span>{r.name.split(' ')[0]} · {r.ratio}:1 · {r.persons}P</span>
+        <span>SWL {fmt(kNtoKgf(r.swl_kN), 0)} / MBS {fmt(kNtoKgf(r.mbs_kN), 0)} kgf</span>
       </div>
     </div>
   );
@@ -311,8 +310,13 @@ function FrictionModule() {
             <ForceCard title="所需制動力 (T₂)" kN={hold_kN} colorClass="text-green-400" description="您需要施加的力" />
             <ForceCard title="摩擦力 (T₁−T₂)" kN={friction_kN} colorClass="text-blue-400" description="圓柱吸收的力" />
           </div>
-          <NumberCard title="放大倍數" value={fmt(gain, 1)} unit="倍" colorClass="text-purple-400"
-            description={turns === 0 ? '未纏繞' : `${turns} 圈 × μ=${mu}`} />
+          <div className="grid grid-cols-2 gap-4">
+            <NumberCard title="制動倍數 e^(μθ)" value={fmt(gain, 1)} unit="倍" colorClass="text-purple-400"
+              description={turns === 0 ? '未纏繞' : `${turns} 圈 × μ=${mu}`} />
+            <NumberCard title="拖拉效率 η = 1/e^(μθ)" value={fmt((1/gain)*100, 0)} unit="%"
+              colorClass={(1/gain) > 0.85 ? 'text-emerald-400' : (1/gain) > 0.5 ? 'text-yellow-400' : 'text-red-400'}
+              description={turns === 0 ? '無摩擦損失' : `100 kgf 拉力只剩 ${fmt((1/gain)*100, 0)} kgf`} />
+          </div>
 
           <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[220px]">
             <svg viewBox="0 0 200 220" className="w-full h-full max-h-64">
@@ -477,6 +481,132 @@ function FrictionModule() {
           <a href="https://overtheedgerescue.com/rope-rescue/oneortwocarabinersforfriction/" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Over The Edge Rescue 完整測試報告</a>
         </div>
       </div>
+
+      {/* === μ 值與滑輪效率對照（180° 包覆角） === */}
+      <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900 border border-emerald-800/40 rounded-xl p-5 space-y-4">
+        <div>
+          <h3 className="text-emerald-300 font-bold text-base">📐 μ 值 vs 滑輪效率對照</h3>
+          <p className="text-slate-400 text-xs mt-1 leading-relaxed">
+            繩索拖拉效率 η = e^(−μθ)，其中 θ 為包覆角（弧度）。
+            以下為最常見的 <strong className="text-emerald-300">180° 包覆角</strong>（θ = π）情境下，不同摩擦係數對應的效率與裝置等級。
+          </p>
+        </div>
+
+        {/* 主要對照表：μ → 裝置 → 效率 */}
+        <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
+          <div className="px-4 py-2 bg-slate-800/60 text-slate-200 font-bold text-sm">
+            🎯 摩擦係數 ↔ 裝置等級 ↔ 180° 效率
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-900 text-slate-400 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">μ 值範圍</th>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">對應裝置</th>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">180° 效率</th>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">100 kgf 能傳遞</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                <tr className="border-b border-slate-800/60 bg-emerald-950/20">
+                  <td className="px-3 py-2 text-emerald-300">0.03 – 0.05</td>
+                  <td className="px-3 py-2 font-sans">球軸承滑輪（Petzl Rescue / SMC PMP / DMM）</td>
+                  <td className="px-3 py-2 text-emerald-300 font-bold">86 – 91%</td>
+                  <td className="px-3 py-2 text-emerald-300">86 – 91 kgf</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 text-green-300">0.05 – 0.10</td>
+                  <td className="px-3 py-2 font-sans">一般滑輪、軸套式滑輪</td>
+                  <td className="px-3 py-2 text-green-300 font-bold">73 – 85%</td>
+                  <td className="px-3 py-2 text-green-300">73 – 85 kgf</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 text-yellow-300">0.15 – 0.25</td>
+                  <td className="px-3 py-2 font-sans">鉤環當變向用</td>
+                  <td className="px-3 py-2 text-yellow-300 font-bold">46 – 62%</td>
+                  <td className="px-3 py-2 text-yellow-300">46 – 62 kgf</td>
+                </tr>
+                <tr className="border-b border-slate-800/60 bg-orange-950/20">
+                  <td className="px-3 py-2 text-orange-300 font-bold">0.30</td>
+                  <td className="px-3 py-2 font-sans">粗糙鉤環 / 樹枝表面</td>
+                  <td className="px-3 py-2 text-orange-400 font-bold">39%</td>
+                  <td className="px-3 py-2 text-orange-300">39 kgf</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2 text-red-300">0.40 – 0.60</td>
+                  <td className="px-3 py-2 font-sans">乾燥樹幹 / 粗糙岩石</td>
+                  <td className="px-3 py-2 text-red-400 font-bold">28 – 15%</td>
+                  <td className="px-3 py-2 text-red-300">28 – 15 kgf</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-red-500">0.60 +</td>
+                  <td className="px-3 py-2 font-sans">濕草、苔蘚、極粗糙表面</td>
+                  <td className="px-3 py-2 text-red-500 font-bold">≤ 15%</td>
+                  <td className="px-3 py-2 text-red-500">≤ 15 kgf</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 包覆角影響：以 μ=0.3 為例 */}
+        <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
+          <div className="px-4 py-2 bg-slate-800/60 text-slate-200 font-bold text-sm">
+            🔁 包覆角影響（以 μ = 0.3 為例）
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-900 text-slate-400 uppercase">
+                <tr>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">包覆角</th>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">情境</th>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">計算</th>
+                  <th className="px-3 py-2 text-left border-b border-slate-800">效率</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2">90°</td>
+                  <td className="px-3 py-2 font-sans">半圈轉折、輕微變向</td>
+                  <td className="px-3 py-2 text-slate-400">e^(−0.3·π/2)</td>
+                  <td className="px-3 py-2 text-yellow-300 font-bold">62%</td>
+                </tr>
+                <tr className="border-b border-slate-800/60 bg-slate-900/40">
+                  <td className="px-3 py-2 text-orange-300 font-bold">180°</td>
+                  <td className="px-3 py-2 font-sans">完整變向（最常見）</td>
+                  <td className="px-3 py-2 text-slate-400">e^(−0.3·π)</td>
+                  <td className="px-3 py-2 text-orange-400 font-bold">39%</td>
+                </tr>
+                <tr className="border-b border-slate-800/60">
+                  <td className="px-3 py-2">270°</td>
+                  <td className="px-3 py-2 font-sans">繞 3/4 圈</td>
+                  <td className="px-3 py-2 text-slate-400">e^(−0.3·3π/2)</td>
+                  <td className="px-3 py-2 text-red-300 font-bold">24%</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2">360°</td>
+                  <td className="px-3 py-2 font-sans">完整一圈（鎖定/制動用）</td>
+                  <td className="px-3 py-2 text-slate-400">e^(−0.3·2π)</td>
+                  <td className="px-3 py-2 text-red-400 font-bold">15%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* 實務影響：3:1 倍力系統範例 */}
+        <div className="bg-red-950/30 rounded-lg p-4 border border-red-900/50">
+          <div className="text-red-300 font-bold text-sm mb-2">⚠ 實務影響：3:1 倍力系統</div>
+          <div className="text-xs text-slate-300 leading-relaxed space-y-1">
+            <div>• 理論：100 kg 載重只需出 33 kg（省力 3 倍）</div>
+            <div>• 用 μ = 0.3 的「滑輪」（兩個轉折點）：實效倍率僅約 <strong className="text-red-400">1.49:1</strong>，需出 <strong className="text-red-400">67 kg</strong></div>
+            <div>• 效率損失 50%，<strong className="text-red-400">倍力系統幾乎失效</strong></div>
+            <div className="text-emerald-300 mt-2">
+              ✓ NFPA / IRATA 教材強調：救援拖拉系統<strong>必須使用真正的軸承滑輪</strong>，鉤環或樹枝代替會讓系統失去意義
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -604,18 +734,15 @@ function HighlineModule() {
   const GRID = 40;
 
   return (
-    <div className="space-y-4">
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-4">
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-3">
           <div>
-            <h2 className="text-2xl font-bold text-slate-100 mb-2">2. 索道繩固定點張力 — Highline</h2>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              兩端錨點與負載皆可<strong className="text-blue-300">自由拖曳</strong>。
-              下垂角越小、中央夾角越接近 180°，張力呈倍數放大。
-              對稱：<code className="text-blue-300 bg-slate-800 px-1 rounded">T = W / (2sinθ)</code>；
-              不對稱：解向量平衡 <code className="text-blue-300 bg-slate-800 px-1 rounded">T_L·u_L + T_R·u_R + W = 0</code>
-              <br/><span className="text-yellow-400">救援實務：θ &lt; 5°（中央夾角 &gt; 170°）即視為高風險（10% 規則）</span>
-              <br/><span className="text-orange-400">負載偏離中心時，會出現水平控制拉力 F_控</span>
+            <h2 className="text-xl font-bold text-slate-100 mb-1">2. 索道繩固定點張力 — Highline</h2>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              兩端錨點與負載可自由拖曳。對稱：<code className="text-blue-300 bg-slate-800 px-1 rounded">T = W/(2sinθ)</code>；
+              不對稱解向量平衡。<span className="text-yellow-400">θ &lt; 5° 視為高風險（10% 規則）</span>。
+              負載偏離中心時會出現水平控制拉力 F_控。
             </p>
           </div>
           <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
@@ -1423,13 +1550,13 @@ function AnchorPullAngleModule() {
 
   return (
     <div className="bg-slate-50 text-slate-900 rounded-xl overflow-hidden shadow-inner">
-      <div className="p-4 md:p-6">
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">6. 固定點與拉力夾角模擬器</h2>
-        <p className="text-slate-500 text-sm mb-4">
-          負載 <b>L</b> 永遠在固定點 <b>A</b> 正下方（重力方向）。<b>拖曳藍色拉力點 P</b> 改變夾角 α，或用下方滑桿調整。
+      <div className="p-3 md:p-4">
+        <h2 className="text-xl font-bold text-slate-800 mb-1">6. 固定點與拉力夾角模擬器</h2>
+        <p className="text-slate-500 text-xs mb-3">
+          負載 <b>L</b> 永遠在固定點 <b>A</b> 正下方。拖曳藍色拉力點 <b>P</b> 改變夾角 α，或用下方滑桿。
         </p>
 
-        <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="mb-3 grid grid-cols-2 md:grid-cols-4 gap-2">
           <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
             <div className="text-xs font-bold text-slate-400 uppercase mb-1">摩擦係數 μ</div>
             <input type="range" min="0" max="0.6" step="0.01" value={mu}
@@ -1673,6 +1800,22 @@ function MAModule() {
           <Slider label="滑輪效率 η" value={efficiency} min={0.7} max={1.0} step={0.01} unit="" onChange={setEfficiency}
             hint="高品質球軸承 0.95 · 一般滑輪 0.90 · 鉤環變向 0.70" />
         </div>
+
+        {/* μ ↔ η 換算對照 */}
+        <div className="bg-slate-800/40 border border-slate-700 rounded-xl p-3 text-xs space-y-1.5">
+          <div className="text-slate-300 font-bold mb-1">📐 η ↔ μ 換算（180° 包覆角）</div>
+          <div className="text-slate-400 leading-relaxed">
+            滑輪效率與摩擦係數的關係：<code className="text-blue-300 bg-slate-900 px-1 rounded">η = e^(−μπ)</code>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-2 font-mono">
+            <div className="text-slate-400">η = 0.95 ⇄ <span className="text-emerald-300">μ ≈ 0.016</span></div>
+            <div className="text-slate-400">η = 0.90 ⇄ <span className="text-green-300">μ ≈ 0.034</span></div>
+            <div className="text-slate-400">η = 0.85 ⇄ <span className="text-yellow-300">μ ≈ 0.052</span></div>
+            <div className="text-slate-400">η = 0.70 ⇄ <span className="text-orange-300">μ ≈ 0.113</span></div>
+            <div className="text-slate-400">η = 0.50 ⇄ <span className="text-red-300">μ ≈ 0.221</span></div>
+            <div className="text-slate-400">η = 0.39 ⇄ <span className="text-red-400">μ ≈ 0.300</span></div>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4 flex flex-col">
@@ -1801,16 +1944,15 @@ function RedirectAnalysisModule() {
   const geometryWarn = !data.redirectAboveAnchor || !data.redirectAboveOperator;
 
   return (
-    <div className="space-y-4">
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="space-y-4">
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-3">
           <div>
-            <h2 className="text-2xl font-bold text-slate-100 mb-2">8. 高轉折點受力分析</h2>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              下方錨點（負載／受困者）的繩索向上經過<strong className="text-green-300">高轉折點</strong>
-              （樹幹／鉤環／滑輪）後再下到操作端。轉折點承受兩繩的向量合力。
-              <br/>公式：<code className="text-blue-300 bg-slate-800 px-1 rounded">R = T_A·û_A + T_O·û_O</code>
-              <br/>含 Capstan 摩擦：<code className="text-blue-300 bg-slate-800 px-1 rounded">T_緊 = T_鬆 × e^(μθ)</code>
+            <h2 className="text-xl font-bold text-slate-100 mb-1">8. 高轉折點受力分析</h2>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              下方錨點繩索經過<strong className="text-green-300">高轉折點</strong>（樹/鉤環/滑輪）後到操作端。
+              <code className="text-blue-300 bg-slate-800 px-1 rounded">R = T_A·û_A + T_O·û_O</code>，
+              含 Capstan 摩擦 <code className="text-blue-300 bg-slate-800 px-1 rounded">T_緊 = T_鬆·e^(μθ)</code>
             </p>
           </div>
           <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
@@ -1834,6 +1976,25 @@ function RedirectAnalysisModule() {
                 </button>
               </div>
               <div className="text-[10px] text-slate-500 mt-1">有效 μ_eff = {fmt(muEff, 2)}</div>
+              <div className="mt-2 bg-slate-950/60 rounded p-2 text-[10px] space-y-0.5 border border-slate-800">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">當前包覆角 θ：</span>
+                  <span className="font-mono text-purple-300">{fmt(data.angleDeg, 0)}°</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">摩擦增益 e^(μ_eff·θ)：</span>
+                  <span className="font-mono text-yellow-300">{fmt(data.gain, 2)} 倍</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">傳遞效率 η = 1/e^(μθ)：</span>
+                  <span className={`font-mono font-bold ${(1/data.gain) > 0.85 ? 'text-emerald-300' : (1/data.gain) > 0.5 ? 'text-yellow-300' : 'text-red-300'}`}>
+                    {fmt((1/data.gain) * 100, 0)}%
+                  </span>
+                </div>
+                <div className="text-slate-500 text-[9px] pt-1 border-t border-slate-800 mt-1">
+                  100 kgf 拉力 → 對端只剩 {fmt((1/data.gain) * 100, 0)} kgf
+                </div>
+              </div>
             </div>
             <div>
               <div className="text-sm font-medium text-slate-300 mb-1.5">操作模式（緊邊）</div>
