@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>繩索受力分析系統 v2 — NFPA 1983 / UIAA</title>
-<meta name="description" content="專業繩索救援、攀岩與高空作業的互動式力學計算工具，依 NFPA 1983 / UIAA 101 標準設計" />
+<title>繩索受力分析系統 v2 — NFPA 2500（原 NFPA 1983）/ UIAA</title>
+<meta name="description" content="專業繩索救援、攀岩與高空作業的互動式力學計算工具，依 NFPA 2500（原 NFPA 1983）/ UIAA 101 標準設計" />
 
 <!-- PWA: 加到主畫面 -->
 <link rel="manifest" href="manifest.webmanifest" />
@@ -16,10 +16,10 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="繩索分析" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="vendor/tailwindcss.js"></script>
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/babel.min.js"></script>
 <style>
   html, body { background: #020617; }
   @keyframes pulseRed { 0%,100%{filter:drop-shadow(0 0 0 rgba(239,68,68,0));} 50%{filter:drop-shadow(0 0 12px rgba(239,68,68,0.9));} }
@@ -31,6 +31,12 @@
   @keyframes countUp { from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:translateY(0);} }
   .count-up { animation: countUp 0.25s ease-out; }
   input[type=range]:focus { outline: 2px solid #60a5fa; outline-offset: 2px; }
+  .tab-strip {
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+  }
+  .tab-strip::-webkit-scrollbar { height: 6px; }
+  .tab-strip::-webkit-scrollbar-thumb { background: #334155; border-radius: 999px; }
   @media print {
     body { background: white !important; color: black !important; }
     nav, .no-print { display: none !important; }
@@ -44,7 +50,7 @@
 
 <!-- 註冊 Service Worker（PWA 安裝必要） -->
 <script>
-  if ('serviceWorker' in navigator) {
+  if ('serviceWorker' in navigator && ['http:', 'https:'].includes(location.protocol)) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch((err) => console.warn('SW failed:', err));
     });
@@ -58,7 +64,7 @@
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // ========================================================================
-// 常數：NFPA 1983 / UIAA / 單位換算
+// 常數：NFPA 2500（原 NFPA 1983）/ UIAA / 單位換算
 // ========================================================================
 const G = 9.80665;                 // m/s²
 const KGF_PER_KN = 1000 / G;       // 1 kN ≈ 101.97 kgf
@@ -2952,7 +2958,7 @@ function App() {
               繩索受力分析系統 <span className="text-sm font-mono text-slate-500">v2</span>
             </h1>
             <p className="text-slate-400 mt-2 text-sm">
-              依 <span className="text-slate-200 font-medium">NFPA 1983 / UIAA 101 / OSHA 1926.502</span> 設計 · 雙單位 (kN / kgf) · 安全係數驗算
+              依 <span className="text-slate-200 font-medium">NFPA 2500（原 NFPA 1983）/ UIAA 101 / OSHA 1926.502</span> 設計 · 雙單位 (kN / kgf) · 安全係數驗算
             </p>
           </div>
           <div className="flex gap-2 flex-wrap no-print">
@@ -3026,13 +3032,13 @@ function App() {
           </div>
         )}
 
-        <nav className="flex flex-wrap gap-2 no-print" role="tablist">
+        <nav className="tab-strip flex gap-2 no-print overflow-x-auto pb-2 -mx-1 px-1" role="tablist" aria-label="繩索分析模組">
           {tabs.map((tab) => (
             <button key={tab.id}
               role="tab"
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+              className={`shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 ${
                 activeTab === tab.id
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20'
                   : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
@@ -3043,7 +3049,7 @@ function App() {
           ))}
         </nav>
 
-        <main className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 overflow-hidden">
+        <main className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-4 md:p-6 overflow-visible">
           {tabs[activeTab].comp}
         </main>
 
@@ -3052,7 +3058,7 @@ function App() {
             <Icon name="info" size={12} />
             僅供教學與參考。實際救援請以現場專業判斷為準，勿單獨依本工具進行重要決策。
           </div>
-          <div>NFPA 1983-2017 · UIAA 101 · ANSI Z359 · OSHA 1926.502 · v2.0</div>
+          <div>NFPA 2500（原 NFPA 1983）· UIAA 101 · ANSI Z359 · OSHA 1926.502 · v2.0</div>
         </footer>
       </div>
     </div>

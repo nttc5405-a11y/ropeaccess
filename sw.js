@@ -1,7 +1,18 @@
 // 繩索受力分析系統 - Service Worker v2
 // 策略：HTML/JS 用 network-first（總是抓最新），靜態資源 cache-first
-const CACHE = 'rope-analysis-v2';
-const ASSETS = ['./manifest.webmanifest', './icon.svg'];
+const CACHE = 'rope-analysis-v3';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './vendor/tailwindcss.js',
+  './vendor/react.production.min.js',
+  './vendor/react-dom.production.min.js',
+  './vendor/babel.min.js',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})));

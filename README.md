@@ -1,6 +1,6 @@
 # 繩索受力分析系統 v2
 
-依 **NFPA 1983 / UIAA 101 / OSHA 1926.502** 設計的互動式繩索力學計算工具，**PWA 可加到主畫面**離線使用。
+依 **NFPA 2500（原 NFPA 1983）/ UIAA 101 / OSHA 1926.502** 設計的互動式繩索力學計算工具，**PWA 可加到主畫面**離線使用。
 
 ## 模組總覽（共 9 個）
 
@@ -20,7 +20,7 @@
 
 ### 力學分析
 - **單位統一為 kgf**，符合救援/消防中文教材慣例
-- **NFPA 1983 安全係數驗算**（G/T/E rated 切換 + 比例條）
+- **NFPA 2500（原 NFPA 1983）安全係數驗算**（G/T/E rated 切換 + 比例條）
 - **人體承受門檻分級**：408/612/816/1224 kgf 五級警告（UIAA、OSHA、ANSI Z359）
 - **不對稱解算**：索道張力支援兩錨點不同高、負載偏離中心的向量平衡解
 - **Capstan 摩擦修正**：所有變向／轉折模組都採 e^(μθ) 真實計算
@@ -35,8 +35,8 @@
 ### PWA 加到主畫面
 - **manifest + service worker**：可離線使用、全螢幕 standalone 模式
 - **頂部「📱 加到主畫面」按鈕**：Android Chrome 直接觸發系統安裝、iOS Safari 顯示步驟說明
-- **網路優先（network-first）快取策略**：HTML 永遠抓最新版，靜態資源快取，更新即時生效
-- **離線可用**：第一次載入後即使沒網路也能開啟
+- **網路優先（network-first）快取策略**：HTML 優先抓最新版，核心靜態資源預先快取
+- **離線可用**：第一次成功載入後，即使沒網路也能開啟已快取版本
 
 ### EN 認證規範速查（模組 9）
 9 大類別涵蓋繩索、鉤環、安全帶、頭盔、扁帶、連接繩、上升下降器、滑輪、錨點，每項標準附：
@@ -47,14 +47,18 @@
 
 ## 部署到 GitHub Pages
 
-### 必上傳檔案（共 5 個，必須在同一層目錄）
+### 必上傳檔案（必須保留相同目錄結構）
 
 ```
 index.html              主程式
 manifest.webmanifest    PWA 設定
 icon.svg                應用圖示
+icon-192.png            PWA 192px 圖示
+icon-512.png            PWA 512px 圖示
 sw.js                   Service Worker（network-first 快取）
 README.md               說明文件
+vendor/                 本機 React / ReactDOM / Babel / Tailwind 腳本
+.nojekyll               GitHub Pages 跳過 Jekyll
 ```
 
 ### 部署指令
@@ -62,7 +66,7 @@ README.md               說明文件
 ```bash
 cd "C:\Users\FireFighter\Desktop\AI\繩索"
 git init
-git add index.html manifest.webmanifest icon.svg sw.js README.md
+git add index.html manifest.webmanifest icon.svg icon-192.png icon-512.png sw.js README.md vendor .nojekyll
 git commit -m "繩索受力分析系統 v2 + PWA"
 git branch -M main
 git remote add origin https://github.com/<YOUR_USERNAME>/<REPO_NAME>.git
@@ -112,10 +116,10 @@ npx serve .
 
 ## 技術架構
 
-- **無 build 流程**：React 18 + Babel Standalone + Tailwind CDN，純 HTML 單檔即跑
-- **無外部依賴**：圖示全部內嵌 SVG（不依賴 lucide-react）
+- **無 build 流程**：React 18 + Babel Standalone + Tailwind 皆改為本機 `vendor/` 檔案
+- **離線依賴完整**：核心 JS、圖示、manifest、Service Worker 都可被快取
 - **PWA 規範**：W3C Web App Manifest + Service Worker
-- **檔案大小**：~ 60 KB（不含 CDN）
+- **檔案大小**：主程式約 150 KB，另含本機 vendor 腳本
 - **相容性**：所有現代瀏覽器（Chrome / Firefox / Safari / Edge）+ iOS Safari + Android Chrome
 
 ## 物理公式參考
