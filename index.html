@@ -160,6 +160,41 @@ async function captureSVGWithVideo(svgEl, videoEl, W, H, filename) {
   });
 }
 
+// 全頁截圖：使用 getDisplayMedia 捕捉當前頁面畫面並下載為 PNG
+async function capturePageScreenshot(filename = 'rope-analysis.png') {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: 'browser', cursor: 'never', frameRate: 1 },
+      audio: false,
+      preferCurrentTab: true,
+    });
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    await new Promise(res => { video.onloadedmetadata = () => video.play().then(res); });
+    await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const w = video.videoWidth, h = video.videoHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(video, 0, 0, w, h);
+    stream.getTracks().forEach(t => t.stop());
+    return new Promise(res => {
+      canvas.toBlob(b => {
+        if (!b) { res(false); return; }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(b);
+        a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+        res(true);
+      }, 'image/png');
+    });
+  } catch(e) {
+    console.warn('Screenshot failed:', e);
+    return false;
+  }
+}
+
 // ========================================================================
 // 圖示 (內嵌 SVG，不依賴 lucide)
 // ========================================================================
@@ -174,6 +209,7 @@ const Icon = ({ name, size=18, className='' }) => {
     cog: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
     print: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
     info: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
+    camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2l2-2h12l2 2h2a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -809,7 +845,6 @@ function HighlineModule() {
               colorClass={Math.abs(data.F_h_kN) > load_kN ? 'text-orange-400' : 'text-blue-400'}
               description={Math.abs(data.offsetRatio) < 0.02 ? '無需控制力' : `偏移 ${fmt(Math.abs(data.offsetRatio) * 100, 0)}%`} />
           </div>
-          <NfpaBadge force_kN={maxT_kN} />
           {lowAngle && (
             <div className="bg-red-950/40 border border-red-800 rounded p-2 text-xs text-red-300">
               ⚠ 至少一側下垂角 &lt; 5°，違反救援 10% 規則
@@ -1154,8 +1189,6 @@ function FallImpactModule() {
             colorClass={human.color + (impact_kN > 6 ? ' pulse-red' : '')}
             description={impact_kN > 6 ? `⚠ ${human.label}（>612 kgf）` : human.label} accent={impact_kN > 8} />
         </div>
-        <NfpaBadge force_kN={impact_kN} />
-
         <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 relative overflow-hidden min-h-[260px]">
           {showFlash && impact_kN > 6 && (
             <div className="absolute inset-0 bg-red-500/30 flash-impact pointer-events-none" />
@@ -1253,8 +1286,6 @@ function DeathTriangleModule() {
             <ForceCard title="死亡三角 (合力)" kN={dt_kN} colorClass="text-red-500"
               description={`${fmt((dt_kN/load_kN)*100,0)}% 載重`} accent />
           </div>
-          <NfpaBadge force_kN={dt_kN} />
-
           <div className="flex-1 grid grid-cols-2 gap-2">
             <div className="bg-slate-950 rounded-xl border border-slate-800 flex flex-col items-center p-3 overflow-hidden">
               <span className="text-xs text-green-400 mb-1 font-bold">✓ 標準 V 型架設</span>
@@ -1416,71 +1447,99 @@ function DirectionalAnchorModule() {
       </div>
 
       <div className="space-y-4 flex flex-col">
-        <ForceCard title="變向固定點合力 F" kN={anchor_kN}
-          colorClass={anchor_kN > tension_kN * 1.5 ? 'text-red-400' : 'text-blue-400'}
-          description={`為單邊張力的 ${fmt(anchor_kN/tension_kN,2)} 倍`} />
-        <NfpaBadge force_kN={anchor_kN} />
-
+        <div className="grid grid-cols-2 gap-3">
+          <ForceCard title="變向固定點合力 F" kN={anchor_kN}
+            colorClass={anchor_kN > tension_kN * 1.5 ? 'text-red-400' : 'text-blue-400'}
+            description={`為單邊張力的 ${fmt(anchor_kN/tension_kN,2)} 倍`} />
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-center text-center">
+            <div className="text-slate-400 text-xs mb-1 uppercase tracking-wider">F = 2T·cos(θ/2)</div>
+            <div className="text-base font-mono text-slate-300 count-up" key={angle}>
+              2 × {tension_kgf} × cos({angle/2}°)
+            </div>
+            <div className="text-emerald-400 text-xs mt-2">
+              {angle === 0 ? '⚠ U型迴轉：F = 2T（最大）' :
+               angle === 120 ? '✓ 120°黃金角：F = T（等張力）' :
+               angle === 180 ? '水平展開：F = 0（無垂直分量）' :
+               `F / T = ${fmt(anchor_kN/tension_kN,2)}`}
+            </div>
+          </div>
+        </div>
         <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-center p-4 min-h-[280px]">
-          <svg viewBox="0 0 240 280" className="w-full h-full max-h-80">
+          <svg viewBox="0 0 260 300" className="w-full h-full max-h-80">
             {/* 固定錨結構（樑/天花板） */}
-            <rect x="40" y="10" width="160" height="14" fill="#334155" stroke="#1e293b" strokeWidth="1" />
+            <rect x="40" y="10" width="180" height="14" fill="#334155" stroke="#1e293b" strokeWidth="1" />
             <line x1="50" y1="24" x2="40" y2="32" stroke="#475569" strokeWidth="1" />
             <line x1="80" y1="24" x2="70" y2="32" stroke="#475569" strokeWidth="1" />
             <line x1="160" y1="24" x2="150" y2="32" stroke="#475569" strokeWidth="1" />
-            <line x1="190" y1="24" x2="180" y2="32" stroke="#475569" strokeWidth="1" />
+            <line x1="200" y1="24" x2="190" y2="32" stroke="#475569" strokeWidth="1" />
             {/* 連接到變向點 */}
-            <line x1="120" y1="24" x2="120" y2="80" stroke="#64748b" strokeWidth="3" />
+            <line x1="130" y1="24" x2="130" y2="80" stroke="#64748b" strokeWidth="3" />
 
-            {/* 變向鉤環（中心點 120,90） */}
-            <circle cx="120" cy="90" r="12" fill="#cbd5e1" stroke="#475569" strokeWidth="3" />
-            <circle cx="120" cy="90" r="6" fill="#0f172a" />
+            {/* 重力方向指示 */}
+            <line x1="16" y1="18" x2="16" y2="50" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="3,2" />
+            <polygon points="12,46 20,46 16,54" fill="#94a3b8" />
+            <text x="7" y="66" fontSize="8" fill="#64748b" fontWeight="bold" textAnchor="middle">g↓</text>
+
+            {/* 變向鉤環（中心點 130,90） */}
+            <circle cx="130" cy="90" r="12" fill="#cbd5e1" stroke="#475569" strokeWidth="3" />
+            <circle cx="130" cy="90" r="6" fill="#0f172a" />
 
             {(() => {
               const a = (angle / 2) * Math.PI / 180;
               const len = 110;
-              const cx = 120, cy = 90;
-              const x1 = cx - len * Math.sin(a), y1 = cy + len * Math.cos(a);
-              const x2 = cx + len * Math.sin(a), y2 = cy + len * Math.cos(a);
-              const arrowLen = Math.min(60, anchor_kN * 7);
+              const cx = 130, cy = 90;
+              // 最小間距：θ<5° 時強制分開一點以便視覺辨識
+              const aVis = Math.max(a, angle < 5 ? 0.05 : 0);
+              const x1 = cx - len * Math.sin(aVis), y1 = cy + len * Math.cos(aVis);
+              const x2 = cx + len * Math.sin(aVis), y2 = cy + len * Math.cos(aVis);
+              const arrowLen = Math.min(60, Math.max(18, anchor_kN * 7));
               return (<>
+                {/* 垂直基準線（虛線，重力方向） */}
+                <line x1={cx} y1={cy + 16} x2={cx} y2={cy + len + 8}
+                  stroke="#1e40af" strokeWidth="1" strokeDasharray="4,3" opacity="0.5" />
+
                 {/* 兩條繩索（向下） */}
                 <line x1={cx} y1={cy} x2={x1} y2={y1} stroke="#f59e0b" strokeWidth="3.5" />
                 <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#f59e0b" strokeWidth="3.5" />
 
+                {/* 角度弧（θ：兩繩夾角） */}
+                {angle >= 5 && (
+                  <path d={`M ${cx - 30 * Math.sin(a)} ${cy + 30 * Math.cos(a)} A 30 30 0 0 0 ${cx + 30 * Math.sin(a)} ${cy + 30 * Math.cos(a)}`}
+                    fill="none" stroke="#94a3b8" strokeWidth="1.5" />
+                )}
+                <text x={cx} y={cy + 48} textAnchor="middle" fontSize="11" fill="#94a3b8" fontWeight="bold">θ = {angle}°</text>
+
                 {/* 左端：重物（負載） */}
                 <line x1={x1} y1={y1} x2={x1} y2={y1 + 8} stroke="#f59e0b" strokeWidth="3" />
-                <rect x={x1 - 18} y={y1 + 8} width="36" height="34" rx="4" fill="#64748b" stroke="#334155" strokeWidth="2" />
-                <text x={x1} y={y1 + 24} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#ffffff">{tension_kgf}</text>
-                <text x={x1} y={y1 + 36} textAnchor="middle" fontSize="8" fill="#cbd5e1">kgf</text>
-                {/* 重力箭頭 */}
-                <line x1={x1} y1={y1 + 44} x2={x1} y2={y1 + 60} stroke="#dc2626" strokeWidth="2" />
-                <polygon points={`${x1 - 4},${y1 + 56} ${x1 + 4},${y1 + 56} ${x1},${y1 + 64}`} fill="#dc2626" />
+                <rect x={x1 - 18} y={y1 + 8} width="36" height="32" rx="4" fill="#64748b" stroke="#334155" strokeWidth="2" />
+                <text x={x1} y={y1 + 22} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#ffffff">{tension_kgf}</text>
+                <text x={x1} y={y1 + 33} textAnchor="middle" fontSize="8" fill="#cbd5e1">kgf</text>
+                {/* 重力箭頭（重力朝下） */}
+                <line x1={x1} y1={y1 + 42} x2={x1} y2={y1 + 56} stroke="#dc2626" strokeWidth="2" />
+                <polygon points={`${x1-4},${y1+52} ${x1+4},${y1+52} ${x1},${y1+60}`} fill="#dc2626" />
+                <text x={x1} y={y1 + 72} textAnchor="middle" fontSize="8" fill="#dc2626">W↓</text>
 
-                {/* 右端：拉力手 */}
+                {/* 右端：操作端拉力 */}
                 <line x1={x2} y1={y2} x2={x2} y2={y2 + 8} stroke="#f59e0b" strokeWidth="3" />
                 <circle cx={x2} cy={y2 + 22} r="12" fill="#3b82f6" stroke="#1e3a8a" strokeWidth="2" />
                 <text x={x2} y={y2 + 26} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#ffffff">P</text>
                 <text x={x2} y={y2 + 50} textAnchor="middle" fontSize="9" fill="#3b82f6" fontWeight="bold">{tension_kgf} kgf</text>
 
-                {/* 張力 T 標籤（沿繩索） */}
-                <text x={(cx + x1) / 2 - 30} y={(cy + y1) / 2} fontSize="10" fill="#f59e0b" fontWeight="bold">T={tension_kgf}</text>
-                <text x={(cx + x2) / 2 + 6} y={(cy + y2) / 2} fontSize="10" fill="#f59e0b" fontWeight="bold">T={tension_kgf}</text>
+                {/* 張力 T 標籤 */}
+                {angle >= 10 && <>
+                  <text x={(cx + x1) / 2 - 26} y={(cy + y1) / 2 - 2} fontSize="10" fill="#f59e0b" fontWeight="bold">T</text>
+                  <text x={(cx + x2) / 2 + 10} y={(cy + y2) / 2 - 2} fontSize="10" fill="#f59e0b" fontWeight="bold">T</text>
+                </>}
 
-                {/* 變向錨點承受合力 F（向上箭頭） */}
+                {/* 合力 F（向上箭頭，錨點反力） */}
                 <line x1={cx} y1={cy} x2={cx} y2={cy - arrowLen} stroke="#ef4444" strokeWidth="4" />
-                <polygon points={`${cx - 5},${cy - arrowLen + 6} ${cx + 5},${cy - arrowLen + 6} ${cx},${cy - arrowLen - 4}`} fill="#ef4444" />
-                <rect x={cx + 8} y={cy - arrowLen - 8} width="86" height="22" rx="4" fill="#fef2f2" stroke="#ef4444" />
+                <polygon points={`${cx-5},${cy-arrowLen+6} ${cx+5},${cy-arrowLen+6} ${cx},${cy-arrowLen-4}`} fill="#ef4444" />
+                <rect x={cx + 8} y={cy - arrowLen - 8} width="90" height="22" rx="4" fill="#fef2f2" stroke="#ef4444" />
                 <text x={cx + 14} y={cy - arrowLen + 7} fontSize="12" fill="#b91c1c" fontWeight="bold" fontFamily="monospace">
                   F = {fmt(kNtoKgf(anchor_kN), 0)} kgf
                 </text>
-
-                {/* 角度弧 */}
-                {angle > 0 && (
-                  <path d={`M ${cx - 28 * Math.sin(a)} ${cy + 28 * Math.cos(a)} A 28 28 0 0 0 ${cx + 28 * Math.sin(a)} ${cy + 28 * Math.cos(a)}`}
-                    fill="none" stroke="#94a3b8" strokeWidth="1.5" />
-                )}
-                <text x={cx} y={cy + 42} textAnchor="middle" fontSize="11" fill="#94a3b8" fontWeight="bold">θ = {angle}°</text>
+                {/* F 說明：錨點需承受的向上反力 */}
+                <text x={cx} y={cy - arrowLen - 14} textAnchor="middle" fontSize="8" fill="#f87171">錨點反力↑</text>
               </>);
             })()}
           </svg>
@@ -1831,7 +1890,6 @@ function MAModule() {
         </div>
         <NumberCard title="實效倍率" value={fmt(realRatio,2)} unit=":1" colorClass="text-blue-400"
           description={`理論 ${ratio}:1 · 損失 ${fmt(lossPct,0)}%`} />
-        <NfpaBadge force_kN={load_kN * (ratio === 1 ? 1 : 1.2)} />
         <div className="flex-1 bg-slate-950 rounded-xl border border-slate-800 p-4 text-xs text-slate-400 space-y-1">
           <div className="text-slate-200 font-bold mb-2">救援操作備註：</div>
           <div>• Whistle Test：放手時系統會否危險？倍力系統需配備制動器（Prusik / 抓結）</div>
@@ -1848,6 +1906,19 @@ function MAModule() {
 // 模組 8（新）：高轉折點受力分析（下方錨點 → 高處轉折 → 操作端）
 // 樹枝、鉤環、滑輪等都適用
 // ========================================================================
+// 轉折物類型：每種類型有對應預設 μ 與可調範圍
+const REDIRECT_TYPES = {
+  tree:      { icon: '🌳', label: '樹幹',
+               mu: 0.40, muMin: 0.20, muMax: 0.80, muStep: 0.05,
+               hint: '乾燥樹皮 ≈0.30-0.45 · 粗糙樹皮 ≈0.50 · 濕滑 ≈0.20' },
+  carabiner: { icon: '⛓', label: '鉤環',
+               mu: 0.20, muMin: 0.10, muMax: 0.40, muStep: 0.05,
+               hint: '拋光鋁製 ≈0.15 · 一般鉤環 ≈0.20 · 磨損/鋼製 ≈0.30' },
+  pulley:    { icon: '⚙', label: '滑輪',
+               mu: 0.05, muMin: 0.03, muMax: 0.15, muStep: 0.01,
+               hint: '球軸承 ≈0.03-0.05 · 軸套式 ≈0.07 · 磨損滑輪 ≈0.10' },
+};
+
 function RedirectAnalysisModule() {
   const W = 800, H = 480;
 
@@ -1857,9 +1928,15 @@ function RedirectAnalysisModule() {
   const [operator, setOperator] = useState({ x: W * 0.80, y: H * 0.78 });
 
   const [load_kgf, setLoad] = useState(100);
-  const [mu, setMu] = useState(0.20);
-  const [tight, setTight] = useState('A');     // 緊邊：A=載重端（垂降）、O=操作端（拉升）
   const [pulleyType, setPulleyType] = useState('carabiner'); // 'tree' | 'carabiner' | 'pulley'
+  const [mu, setMu] = useState(REDIRECT_TYPES['carabiner'].mu);
+  const [tight, setTight] = useState('A');     // 緊邊：A=載重端（垂降）、O=操作端（拉升）
+
+  // 切換轉折物類型時自動連動 μ
+  const handleTypeChange = useCallback((type) => {
+    setPulleyType(type);
+    setMu(REDIRECT_TYPES[type].mu);
+  }, []);
 
   // 相機 / 格線 / 全螢幕 / 截圖
   const [cameraOn, setCameraOn] = useState(false);
@@ -1872,11 +1949,7 @@ function RedirectAnalysisModule() {
   const [drag, setDrag] = useState(null);
 
   const load_kN = (load_kgf * G) / 1000;
-
-  // 滑輪/鉤環效率（影響等效摩擦）
-  const muEff = pulleyType === 'pulley' ? Math.max(0.05, mu * 0.3)   // 滑輪低摩擦
-              : pulleyType === 'tree'    ? Math.min(0.8, mu * 1.8)   // 樹幹高摩擦
-              : mu;                                                    // 鉤環
+  const muEff = mu;   // μ 直接對應所選轉折物類型的實際摩擦係數
 
   // 啟動相機
   useEffect(() => {
@@ -1963,25 +2036,36 @@ function RedirectAnalysisModule() {
           </div>
           <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
             <Slider label="負載 (W)" value={load_kgf} min={50} max={500} step={10} unit="kgf" onChange={setLoad} />
-            <Slider label="摩擦係數 μ（基準）" value={mu} min={0} max={0.8} step={0.05} unit="" onChange={setMu}
-              hint="鉤環 0.2 · 樹幹 0.4 · 粗糙岩 0.6（依轉折物自動修正）" />
+            {/* 轉折物類型（先選類型，μ 自動連動） */}
             <div>
               <div className="text-sm font-medium text-slate-300 mb-1.5">轉折物類型</div>
               <div className="grid grid-cols-3 gap-1.5">
-                <button onClick={() => setPulleyType('tree')}
-                  className={`px-2 py-1.5 rounded text-xs ${pulleyType==='tree' ? 'bg-amber-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  🌳 樹幹（×1.8）
-                </button>
-                <button onClick={() => setPulleyType('carabiner')}
-                  className={`px-2 py-1.5 rounded text-xs ${pulleyType==='carabiner' ? 'bg-blue-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  ⛓ 鉤環（×1.0）
-                </button>
-                <button onClick={() => setPulleyType('pulley')}
-                  className={`px-2 py-1.5 rounded text-xs ${pulleyType==='pulley' ? 'bg-emerald-700 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  ⚙ 滑輪（×0.3）
-                </button>
+                {Object.entries(REDIRECT_TYPES).map(([key, t]) => (
+                  <button key={key} onClick={() => handleTypeChange(key)}
+                    className={`px-2 py-2 rounded text-xs flex flex-col items-center gap-0.5 transition-colors
+                      ${pulleyType===key
+                        ? key==='tree' ? 'bg-amber-700 text-white'
+                        : key==='pulley' ? 'bg-emerald-700 text-white'
+                        : 'bg-blue-700 text-white'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                    <span>{t.icon} {t.label}</span>
+                    <span className={`font-mono text-[10px] ${pulleyType===key ? 'text-white/80' : 'text-slate-400'}`}>
+                      μ ≈ {t.mu}
+                    </span>
+                  </button>
+                ))}
               </div>
-              <div className="text-[10px] text-slate-500 mt-1">有效 μ_eff = {fmt(muEff, 2)}</div>
+            </div>
+            <Slider label={`摩擦係數 μ（${REDIRECT_TYPES[pulleyType].icon} ${REDIRECT_TYPES[pulleyType].label}）`}
+              value={mu}
+              min={REDIRECT_TYPES[pulleyType].muMin}
+              max={REDIRECT_TYPES[pulleyType].muMax}
+              step={REDIRECT_TYPES[pulleyType].muStep}
+              unit=""
+              onChange={setMu}
+              hint={REDIRECT_TYPES[pulleyType].hint} />
+            <div>
+              <div className="text-[10px] text-slate-500">μ = {fmt(muEff, 2)}（當前有效摩擦係數）</div>
               <div className="mt-2 bg-slate-950/60 rounded p-2 text-[10px] space-y-0.5 border border-slate-800">
                 <div className="flex justify-between">
                   <span className="text-slate-400">當前包覆角 θ：</span>
@@ -2057,7 +2141,6 @@ function RedirectAnalysisModule() {
             colorClass={data.Rmag > load_kN * 1.8 ? 'text-red-500' : 'text-orange-400'}
             description={`為負載的 ${fmt(data.Rmag / load_kN, 2)} 倍 · 包覆角 θ = ${fmt(data.angleDeg, 0)}°`}
             accent={data.Rmag > load_kN * 1.8} />
-          <NfpaBadge force_kN={data.Rmag} />
           {geometryWarn && (
             <div className="bg-orange-950/40 border border-orange-800 rounded p-2 text-xs text-orange-300">
               ⚠ 轉折點 R 應在錨點 A 與操作端 O 上方才符合「高轉折」情境
@@ -2898,6 +2981,7 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showIosHelp, setShowIosHelp] = useState(false);
+  const [pageShot, setPageShot] = useState('');
 
   useEffect(() => {
     // 偵測是否已是 PWA 模式（安裝後）
@@ -2973,9 +3057,14 @@ function App() {
                 ✓ 已安裝
               </span>
             )}
-            <button onClick={() => window.print()}
+            <button onClick={async () => {
+              setPageShot('截圖中…');
+              const ok = await capturePageScreenshot('繩索分析-' + new Date().toISOString().slice(0,10) + '.png');
+              setPageShot(ok ? '✓ 已儲存' : '✗ 失敗');
+              setTimeout(() => setPageShot(''), 3000);
+            }}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm">
-              <Icon name="print" size={16} /> 列印 / PDF
+              <Icon name="camera" size={16} /> {pageShot || '截圖'}
             </button>
           </div>
         </header>
