@@ -210,6 +210,7 @@ const Icon = ({ name, size=18, className='' }) => {
     print: <><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></>,
     info: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
     camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2l2-2h12l2 2h2a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+    chevron: <polyline points="6 9 12 15 18 9" />,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -298,6 +299,34 @@ const NumberCard = ({ title, value, unit, colorClass = 'text-white', description
     {description && <div className="text-xs text-slate-500 mt-2">{description}</div>}
   </div>
 );
+
+// 摺疊區塊：用於長篇參考/教學內容，預設可收合以精簡介面
+// action：可放置獨立可點擊元素（如外部連結），不會被收合按鈕吃掉點擊事件
+const CollapsibleSection = ({ title, subtitle, badge, action, defaultOpen = false, className = '', children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`rounded-xl border ${className}`}>
+      <div className="w-full flex items-center justify-between gap-3 p-4">
+        <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+          className="flex-1 flex items-center gap-2 flex-wrap min-w-0 text-left">
+          {badge}
+          <div className="min-w-0">
+            <div className="text-slate-100 font-bold text-sm md:text-base">{title}</div>
+            {subtitle && <div className="text-slate-400 text-xs mt-0.5">{subtitle}</div>}
+          </div>
+        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {action}
+          <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} aria-label={open ? '收合' : '展開'}>
+            <Icon name="chevron" size={20}
+              className={`text-slate-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+      </div>
+      {open && <div className="px-4 pb-4 md:px-5 md:pb-5 space-y-4">{children}</div>}
+    </div>
+  );
+};
 
 // NFPA 安全係數徽章（精簡版）
 const NfpaBadge = ({ force_kN }) => {
@@ -472,19 +501,11 @@ function FrictionModule() {
         </div>
       </div>
 
-      {/* === 進階解讀：Over The Edge Rescue 三部曲實測 === */}
-      <div className="bg-gradient-to-br from-sky-950/30 to-slate-900 border border-sky-800/40 rounded-xl p-5 space-y-4">
-        <div className="flex items-start gap-3 flex-wrap">
-          <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">▶ YouTube 系列</div>
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-sky-200 font-bold text-base">
-              進階解讀：「一個鉤環 vs 兩個鉤環，哪個摩擦力較大？」三部曲
-            </div>
-            <div className="text-slate-400 text-xs mt-0.5">
-              來源：Over The Edge Rescue · 測試地點：紐西蘭 Aspiring Safety 50 kN 垂直試驗台
-            </div>
-          </div>
-        </div>
+      <CollapsibleSection
+        className="bg-gradient-to-br from-sky-950/30 to-slate-900 border-sky-800/40"
+        badge={<div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">▶ YouTube 系列</div>}
+        title="進階解讀：「一個鉤環 vs 兩個鉤環，哪個摩擦力較大？」三部曲"
+        subtitle="來源：Over The Edge Rescue · 測試地點：紐西蘭 Aspiring Safety 50 kN 垂直試驗台">
 
         {/* 三部曲說明卡 */}
         <div className="grid md:grid-cols-3 gap-3">
@@ -615,17 +636,16 @@ function FrictionModule() {
           {' · '}
           <a href="https://overtheedgerescue.com/rope-rescue/oneortwocarabinersforfriction/" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:underline">Over The Edge Rescue 完整測試報告</a>
         </div>
-      </div>
+      </CollapsibleSection>
 
-      {/* === μ 值與滑輪效率對照（180° 包覆角） === */}
-      <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900 border border-emerald-800/40 rounded-xl p-5 space-y-4">
-        <div>
-          <h3 className="text-emerald-300 font-bold text-base">📐 μ 值 vs 滑輪效率對照</h3>
-          <p className="text-slate-400 text-xs mt-1 leading-relaxed">
-            繩索拖拉效率 η = e^(−μθ)，其中 θ 為包覆角（弧度）。
-            以下為最常見的 <strong className="text-emerald-300">180° 包覆角</strong>（θ = π）情境下，不同摩擦係數對應的效率與裝置等級。
-          </p>
-        </div>
+      <CollapsibleSection
+        className="bg-gradient-to-br from-emerald-950/30 to-slate-900 border-emerald-800/40"
+        title="📐 μ 值 vs 滑輪效率對照"
+        subtitle="繩索拖拉效率 η = e^(−μθ)，180° 包覆角情境下的裝置對照">
+        <p className="text-slate-400 text-xs -mt-2 leading-relaxed">
+          繩索拖拉效率 η = e^(−μθ)，其中 θ 為包覆角（弧度）。
+          以下為最常見的 <strong className="text-emerald-300">180° 包覆角</strong>（θ = π）情境下，不同摩擦係數對應的效率與裝置等級。
+        </p>
 
         {/* 主要對照表：μ → 裝置 → 效率 */}
         <div className="bg-slate-950 rounded-lg border border-slate-800 overflow-hidden">
@@ -741,7 +761,7 @@ function FrictionModule() {
             </div>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -1418,25 +1438,17 @@ function DeathTriangleModule() {
         </div>
       </div>
 
-      {/* === 進階解讀：HowNot2 實測影片 === */}
-      <div className="bg-gradient-to-br from-amber-950/30 to-slate-900 border border-amber-800/40 rounded-xl p-5 space-y-4">
-        <div className="flex items-start gap-3 flex-wrap">
-          <div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold flex items-center gap-1">
-            ▶ YouTube
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <div className="text-amber-200 font-bold text-base">
-              進階解讀：「美國死亡三角是個迷思」
-            </div>
-            <div className="text-slate-400 text-xs mt-0.5">
-              來源：HowNot2 — <span className="font-mono">American Death Triangle is a Myth</span>
-            </div>
-          </div>
+      <CollapsibleSection
+        className="bg-gradient-to-br from-amber-950/30 to-slate-900 border-amber-800/40"
+        badge={<div className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold flex items-center gap-1">▶ YouTube</div>}
+        title="進階解讀：「美國死亡三角是個迷思」"
+        subtitle={<>來源：HowNot2 — <span className="font-mono">American Death Triangle is a Myth</span></>}
+        action={
           <a href="https://www.youtube.com/watch?v=7sQNpjnJe40" target="_blank" rel="noopener noreferrer"
             className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded transition-colors no-print">
             觀看影片 ↗
           </a>
-        </div>
+        }>
 
         <div className="text-sm text-slate-300 leading-relaxed space-y-3">
           <p>
@@ -1507,7 +1519,7 @@ function DeathTriangleModule() {
           <a href="https://en.wikipedia.org/wiki/American_death_triangle" target="_blank" rel="noopener noreferrer"
             className="text-amber-400 hover:underline">Wikipedia</a>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -2990,8 +3002,7 @@ function ENCertModule() {
       </div>
 
       {/* 通用 CE 標識說明 */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 mt-4">
-        <h3 className="text-sm font-bold text-slate-200 mb-3">📋 CE 標識通用判讀</h3>
+      <CollapsibleSection className="bg-slate-900/60 border-slate-800 mt-4" title="📋 CE 標識通用判讀">
         <div className="grid md:grid-cols-2 gap-3 text-xs">
           <div className="bg-slate-950/60 rounded p-3 border border-slate-800">
             <div className="font-bold text-blue-300 mb-1">CE + 4 位數字</div>
@@ -3010,11 +3021,10 @@ function ENCertModule() {
             <div className="text-slate-300">用於追溯與檢驗週期管理（PPE 通常 5–10 年壽命）</div>
           </div>
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* 對照表 */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-        <h3 className="text-sm font-bold text-slate-200 mb-3">🌐 EN vs NFPA / ANSI 對照</h3>
+      <CollapsibleSection className="bg-slate-900/60 border-slate-800" title="🌐 EN vs NFPA / ANSI 對照">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-slate-400 border-b border-slate-700">
@@ -3059,7 +3069,7 @@ function ENCertModule() {
             </tbody>
           </table>
         </div>
-      </div>
+      </CollapsibleSection>
     </div>
   );
 }
