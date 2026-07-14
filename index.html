@@ -222,22 +222,61 @@ const Icon = ({ name, size=18, className='' }) => {
 // ========================================================================
 // 共用 UI
 // ========================================================================
-const Slider = ({ label, value, min, max, step, onChange, unit, hint, ariaLabel }) => (
-  <div className="space-y-2">
-    <div className="flex justify-between items-center">
-      <label className="text-sm font-medium text-slate-300">{label}</label>
-      <span className="text-blue-400 font-mono bg-slate-950 px-2 py-1 rounded text-sm count-up" key={value}>
-        {value} {unit}
-      </span>
+const Slider = ({ label, value, min, max, step, onChange, unit, hint, ariaLabel, editable }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => { if (!editing) setDraft(String(value)); }, [value, editing]);
+
+  const commit = () => {
+    let n = parseFloat(draft);
+    if (Number.isNaN(n)) { setDraft(String(value)); setEditing(false); return; }
+    if (min != null) n = Math.max(min, n);
+    if (max != null) n = Math.min(max, n);
+    onChange(n);
+    setDraft(String(n));
+    setEditing(false);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <label className="text-sm font-medium text-slate-300">{label}</label>
+        {editable && editing ? (
+          <input
+            type="number"
+            min={min} max={max} step={step}
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commit();
+              if (e.key === 'Escape') { setDraft(String(value)); setEditing(false); }
+            }}
+            aria-label={ariaLabel || label}
+            className="text-blue-400 font-mono bg-slate-950 px-2 py-1 rounded text-sm w-20 text-right border border-blue-500 focus:outline-none"
+          />
+        ) : (
+          <span
+            className={`text-blue-400 font-mono bg-slate-950 px-2 py-1 rounded text-sm count-up ${editable ? 'cursor-text hover:bg-slate-900' : ''}`}
+            key={value}
+            onClick={editable ? () => setEditing(true) : undefined}
+            title={editable ? '點擊輸入數值' : undefined}
+          >
+            {value} {unit}
+          </span>
+        )}
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        aria-label={ariaLabel || label}
+        aria-valuetext={`${value} ${unit}`}
+        className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+      {hint && <p className="text-xs text-slate-500">{hint}</p>}
     </div>
-    <input type="range" min={min} max={max} step={step} value={value}
-      onChange={(e) => onChange(parseFloat(e.target.value))}
-      aria-label={ariaLabel || label}
-      aria-valuetext={`${value} ${unit}`}
-      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-    {hint && <p className="text-xs text-slate-500">{hint}</p>}
-  </div>
-);
+  );
+};
 
 // 力量顯示卡：統一以 kgf 顯示
 const ForceCard = ({ title, kN, colorClass = 'text-white', description, accent }) => (
@@ -297,19 +336,41 @@ const NfpaBadge = ({ force_kN }) => {
   );
 };
 
+// 摩擦係數範例（μ）：常見繩索接觸面組合，供快速套用
+const FRICTION_MU_PRESETS = [
+  { label: '繩對繩（摩擦節/繞繩）', mu: 0.55, hint: '尼龍對尼龍纏繞，範圍約 0.40–0.70' },
+  { label: '繩對鉤環（拋光鋁）',   mu: 0.15, hint: '光滑鋁合金鉤環，範圍約 0.10–0.20' },
+  { label: '繩對鉤環（一般/鋼）', mu: 0.25, hint: '一般或鋼製鉤環，範圍約 0.20–0.30' },
+  { label: '繩對確保器/下降器',   mu: 0.30, hint: '八字環、ATC 等溝槽裝置，範圍約 0.20–0.40' },
+  { label: '繩對乾燥樹幹',       mu: 0.40, hint: '乾燥樹皮，範圍約 0.30–0.45' },
+  { label: '繩對潮濕樹皮',       mu: 0.20, hint: '濕滑樹皮或苔蘚，範圍約 0.15–0.25' },
+  { label: '繩對粗糙岩石',       mu: 0.65, hint: '粗糙花崗岩等，範圍約 0.50–0.80' },
+];
+
 // ========================================================================
 // 模組 1：Capstan 摩擦力 — 加上螺旋繪製、張力熱力圖
 // ========================================================================
 function FrictionModule() {
-  const [load_kgf, setLoad] = useState(100);                  // 載重 kgf
   const [turns, setTurns] = useState(1);
   const [mu, setMu] = useState(0.2);
+  const [knownVar, setKnownVar] = useState('T1');    // 'T1'=已知載重求制動力 · 'T2'=已知施力求可承受載重
+  const [knownKgf, setKnownKgf] = useState(100);       // 目前「已知」那一側的數值
 
-  const load_kN = (load_kgf * G) / 1000;
   const theta = turns * 2 * Math.PI;
   const gain = Math.exp(mu * theta);
-  const hold_kN = load_kN / gain;
+  const load_kgf = knownVar === 'T1' ? knownKgf : knownKgf * gain;   // T₁ 載重
+  const hold_kgf = knownVar === 'T1' ? knownKgf / gain : knownKgf;   // T₂ 施力/制動力
+  const load_kN = (load_kgf * G) / 1000;
+  const hold_kN = (hold_kgf * G) / 1000;
   const friction_kN = load_kN - hold_kN;
+
+  // 切換「已知」的一側時，把目前算出的值帶過去，畫面數字才不會跳動
+  const switchKnown = (nextVar) => {
+    if (nextVar === knownVar) return;
+    const carried = nextVar === 'T1' ? load_kgf : hold_kgf;
+    setKnownKgf(Math.round(carried * 10) / 10);
+    setKnownVar(nextVar);
+  };
 
   // 螺旋繞線 path
   const spiralPath = useMemo(() => {
@@ -340,18 +401,50 @@ function FrictionModule() {
             </p>
           </div>
           <div className="space-y-4 bg-slate-800/50 p-5 rounded-xl">
-            <Slider label="載重 (T₁)" value={load_kgf} min={10} max={500} step={10} unit="kgf" onChange={setLoad} />
-            <Slider label="纏繞圈數 (θ)" value={turns} min={0} max={4} step={0.25} unit="圈" onChange={setTurns} />
-            <Slider label="摩擦係數 (μ)" value={mu} min={0.1} max={0.8} step={0.05} unit="" onChange={setMu}
-              hint="0.2 金屬鉤環/確保器 · 0.4 乾燥樹幹 · 0.6 粗糙岩石" />
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="text-sm font-medium text-slate-300">已知條件</span>
+              <div className="flex gap-1">
+                <button type="button" onClick={() => switchKnown('T1')}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-colors ${knownVar === 'T1' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                  已知 T₁（載重）求 T₂
+                </button>
+                <button type="button" onClick={() => switchKnown('T2')}
+                  className={`px-3 py-1 rounded text-xs font-bold transition-colors ${knownVar === 'T2' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                  已知 T₂（施力）求 T₁
+                </button>
+              </div>
+            </div>
+            <Slider label={knownVar === 'T1' ? '載重 (T₁，已知)' : '施力 (T₂，已知)'}
+              value={knownKgf} min={10} max={500} step={10} unit="kgf" onChange={setKnownKgf} />
+            <Slider label="纏繞圈數 (θ)" value={turns} min={0} max={4} step={0.25} unit="圈" onChange={setTurns} editable />
+            <div className="space-y-2">
+              <Slider label="摩擦係數 (μ)" value={mu} min={0.1} max={0.8} step={0.05} unit="" onChange={setMu} />
+              <div className="flex flex-wrap gap-1.5">
+                {FRICTION_MU_PRESETS.map((p) => {
+                  const active = Math.abs(mu - p.mu) < 0.001;
+                  return (
+                    <button key={p.label} type="button" onClick={() => setMu(p.mu)} title={p.hint}
+                      className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${active ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+                      {p.label} μ≈{fmt(p.mu, 2)}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-slate-500">點選上方範例快速套用常見摩擦係數，或用滑塊微調。</p>
+            </div>
           </div>
         </div>
 
         <div className="space-y-4 flex flex-col">
           <div className="grid grid-cols-2 gap-4">
-            <ForceCard title="所需制動力 (T₂)" kN={hold_kN} colorClass="text-green-400" description="您需要施加的力" />
-            <ForceCard title="摩擦力 (T₁−T₂)" kN={friction_kN} colorClass="text-blue-400" description="圓柱吸收的力" />
+            <ForceCard title={knownVar === 'T1' ? 'T₁（已知載重）' : 'T₁（計算：可承受載重）'}
+              kN={load_kN} colorClass="text-blue-400"
+              description={knownVar === 'T1' ? '您輸入的載重' : '此設定下最多能承受的載重'} />
+            <ForceCard title={knownVar === 'T2' ? 'T₂（已知施力）' : 'T₂（計算：所需制動力）'}
+              kN={hold_kN} colorClass="text-green-400"
+              description={knownVar === 'T2' ? '您輸入的施力' : '您需要施加的力'} />
           </div>
+          <p className="text-xs text-slate-500 text-center -mt-2">摩擦力吸收 {fmt(kNtoKgf(friction_kN), 0)} kgf（T₁−T₂）</p>
           <div className="grid grid-cols-2 gap-4">
             <NumberCard title="制動倍數 e^(μθ)" value={fmt(gain, 1)} unit="倍" colorClass="text-purple-400"
               description={turns === 0 ? '未纏繞' : `${turns} 圈 × μ=${mu}`} />
@@ -369,7 +462,7 @@ function FrictionModule() {
 
               <line x1="60" y1="140" x2="60" y2="200" stroke="#ef4444" strokeWidth="5" />
               <polygon points="55,200 65,200 60,210" fill="#ef4444" />
-              <text x="60" y="218" fill="#ef4444" fontSize="11" fontWeight="bold" textAnchor="middle">T₁ {load_kgf} kgf</text>
+              <text x="60" y="218" fill="#ef4444" fontSize="11" fontWeight="bold" textAnchor="middle">T₁ {fmt(load_kgf, 0)} kgf</text>
 
               <line x1="140" y1="100" x2="140" y2="20" stroke="#22c55e" strokeWidth={Math.max(1.5, 5 - turns)} />
               <polygon points="135,30 145,30 140,18" fill="#22c55e" />
