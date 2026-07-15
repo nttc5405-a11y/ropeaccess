@@ -890,95 +890,27 @@ function HighlineModule() {
 
   return (
     <div className="space-y-3">
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-xl font-bold text-slate-100 mb-1">2. 索道繩固定點張力 — Highline</h2>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              兩端錨點與負載可自由拖曳。對稱：<code className="text-blue-300 bg-slate-800 px-1 rounded">T = W/(2sinθ)</code>；
-              不對稱解向量平衡。<span className="text-yellow-400">θ &lt; 5° 視為高風險（10% 規則）</span>。
-              負載偏離中心時會出現水平控制拉力 F_控。
-            </p>
-          </div>
-          <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
-            <Slider label="中央載重 (W)" value={load_kgf} min={50} max={500} step={10} unit="kgf" onChange={setLoad} />
-            <div className="flex flex-wrap gap-2 text-xs">
-              <button onClick={() => setCameraOn(!cameraOn)}
-                className={`px-3 py-1.5 rounded font-medium transition-colors ${cameraOn ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
-                {cameraOn ? '⏹ 停止相機' : '📷 啟用相機 AR'}
-              </button>
-              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-700 text-slate-200 cursor-pointer">
-                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />
-                顯示格線
-              </label>
-              <button onClick={() => setFullscreen(true)}
-                className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
-                🖥 放大畫布
-              </button>
-              <button onClick={takeScreenshot}
-                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium">
-                📸 截圖
-              </button>
-              <button onClick={() => {
-                setAnchorL({ x: W * 0.15, y: H * 0.20 });
-                setAnchorR({ x: W * 0.85, y: H * 0.20 });
-                setLoadPos({ x: W * 0.50, y: H * 0.55 });
-              }} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200">
-                重置位置
-              </button>
-              {shotMsg && <span className="self-center text-emerald-400 font-medium">{shotMsg}</span>}
-            </div>
-            {cameraError && (
-              <div className="text-xs text-red-400 bg-red-950/40 border border-red-800 rounded p-2">
-                {cameraError}
-              </div>
-            )}
-            <div className="text-xs text-slate-500 leading-relaxed">
-              💡 提示：相機 AR 需要 HTTPS 環境（GitHub Pages 自動支援）。
-              拖曳兩個灰色 ▲ 錨點調整索道形狀，拖曳紅色負載觀察張力如何變化。
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <ForceCard title="左側張力 T_L" kN={Math.max(0, data.T_L_kN)}
-              colorClass={data.T_L_kN > load_kN * 2 ? 'text-red-400' : data.T_L_kN > load_kN ? 'text-yellow-400' : 'text-green-400'}
-              description={`θ_L = ${fmt(data.thetaL_deg,1)}°`} />
-            <ForceCard title="右側張力 T_R" kN={Math.max(0, data.T_R_kN)}
-              colorClass={data.T_R_kN > load_kN * 2 ? 'text-red-400' : data.T_R_kN > load_kN ? 'text-yellow-400' : 'text-green-400'}
-              description={`θ_R = ${fmt(data.thetaR_deg,1)}°`} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <NumberCard title="中央夾角 ∠AWB" value={fmt(data.innerAngle_deg, 1)} unit="°"
-              colorClass={data.innerAngle_deg > 170 ? 'text-red-400' : data.innerAngle_deg > 150 ? 'text-yellow-400' : 'text-purple-400'}
-              description={data.innerAngle_deg > 170 ? '⚠ 接近水平，張力暴增' : '兩繩在負載點的夾角'} />
-            <ForceCard title={Math.abs(data.offsetRatio) < 0.02 ? '偏離拉力（置中）' : `偏離拉力（${data.offsetRatio > 0 ? '偏右' : '偏左'}）`}
-              kN={Math.abs(data.F_h_kN)}
-              colorClass={Math.abs(data.F_h_kN) > load_kN ? 'text-orange-400' : 'text-blue-400'}
-              description={Math.abs(data.offsetRatio) < 0.02 ? '無需控制力' : `偏移 ${fmt(Math.abs(data.offsetRatio) * 100, 0)}%`} />
-          </div>
-          {lowAngle && (
-            <div className="bg-red-950/40 border border-red-800 rounded p-2 text-xs text-red-300">
-              ⚠ 至少一側下垂角 &lt; 5°，違反救援 10% 規則
-            </div>
-          )}
-          {invalid && (
-            <div className="bg-orange-950/40 border border-orange-800 rounded p-2 text-xs text-orange-300">
-              ⚠ 幾何無效：負載必須位於兩錨點下方才能形成索道
-            </div>
-          )}
-        </div>
+      <div>
+        <h2 className="text-xl font-bold text-slate-100 mb-1">2. 索道繩固定點張力 — Highline</h2>
+        <p className="text-slate-400 text-xs leading-relaxed">
+          拖曳灰色 ▲ 錨點與紅色負載，張力、夾角、偏離拉力即時標示在畫布上。
+          對稱：<code className="text-blue-300 bg-slate-800 px-1 rounded">T = W/(2sinθ)</code>；
+          <span className="text-yellow-400">θ &lt; 5° 視為高風險（10% 規則）</span>。
+        </p>
       </div>
 
-      {/* 全寬互動畫布（支援全螢幕放大） */}
+      {/* 全寬互動畫布：控制列與所有數值都疊在畫布上（AR 風），支援全螢幕放大 */}
       <div className={fullscreen
         ? 'fixed inset-0 z-50 bg-slate-950 flex flex-col'
         : 'relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden'}>
         {fullscreen && (
-          <div className="bg-slate-900/90 backdrop-blur px-3 py-2 flex justify-between items-center gap-2 border-b border-slate-700">
-            <span className="text-slate-200 font-bold text-sm">索道張力分析 — 全螢幕模式</span>
-            <div className="flex gap-2 flex-wrap">
+          <div className="bg-slate-900/90 backdrop-blur px-3 py-2 flex flex-wrap justify-between items-center gap-2 border-b border-slate-700">
+            <span className="text-slate-200 font-bold text-sm shrink-0">索道張力分析 — 全螢幕模式</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-slate-300 shrink-0">W</span>
+              <input type="range" min={50} max={500} step={10} value={load_kgf}
+                onChange={(e) => setLoad(parseFloat(e.target.value))} className="w-24 accent-blue-500" />
+              <span className="text-xs text-blue-300 font-mono w-14 text-right shrink-0">{load_kgf} kgf</span>
               <button onClick={() => setCameraOn(!cameraOn)}
                 className={`px-3 py-1.5 rounded text-xs font-medium ${cameraOn ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-200'}`}>
                 {cameraOn ? '⏹ 相機' : '📷 相機'}
@@ -992,6 +924,46 @@ function HighlineModule() {
                 className="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium">⏏ 退出</button>
               {shotMsg && <span className="self-center text-emerald-400 text-xs">{shotMsg}</span>}
             </div>
+          </div>
+        )}
+
+        {!fullscreen && (
+          <div className="absolute top-2 left-2 right-2 z-20 flex flex-wrap items-center gap-2 bg-slate-900/85 backdrop-blur rounded-lg px-3 py-2 border border-slate-700/60 text-xs">
+            <span className="text-slate-300 shrink-0">載重 W</span>
+            <input type="range" min={50} max={500} step={10} value={load_kgf}
+              onChange={(e) => setLoad(parseFloat(e.target.value))} className="flex-1 min-w-[70px] accent-blue-500" />
+            <span className="text-blue-300 font-mono w-14 text-right shrink-0">{load_kgf} kgf</span>
+            <button onClick={() => setCameraOn(!cameraOn)}
+              className={`px-2.5 py-1 rounded font-medium transition-colors shrink-0 ${cameraOn ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
+              {cameraOn ? '⏹ 相機' : '📷 相機'}
+            </button>
+            <label className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-700 text-slate-200 cursor-pointer shrink-0">
+              <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
+            </label>
+            <button onClick={() => setFullscreen(true)}
+              className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium shrink-0">
+              🖥 放大
+            </button>
+            <button onClick={takeScreenshot}
+              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium shrink-0">
+              📸 截圖
+            </button>
+            <button onClick={() => {
+              setAnchorL({ x: W * 0.15, y: H * 0.20 });
+              setAnchorR({ x: W * 0.85, y: H * 0.20 });
+              setLoadPos({ x: W * 0.50, y: H * 0.55 });
+            }} className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 shrink-0">
+              重置
+            </button>
+            {shotMsg && <span className="text-emerald-400 font-medium shrink-0">{shotMsg}</span>}
+          </div>
+        )}
+
+        {(cameraError || lowAngle || invalid) && (
+          <div className="absolute top-14 left-2 right-2 z-20 flex flex-col gap-1.5">
+            {cameraError && <div className="text-xs text-red-300 bg-red-950/85 backdrop-blur border border-red-800 rounded px-2 py-1.5">{cameraError}</div>}
+            {lowAngle && <div className="text-xs text-red-300 bg-red-950/85 backdrop-blur border border-red-800 rounded px-2 py-1.5">⚠ 至少一側下垂角 &lt; 5°，違反救援 10% 規則</div>}
+            {invalid && <div className="text-xs text-orange-300 bg-orange-950/85 backdrop-blur border border-orange-800 rounded px-2 py-1.5">⚠ 幾何無效：負載必須位於兩錨點下方才能形成索道</div>}
           </div>
         )}
 
@@ -2127,154 +2099,98 @@ function RedirectAnalysisModule() {
   const GRID = 40;
   const geometryWarn = !data.redirectAboveAnchor || !data.redirectAboveOperator;
 
-  return (
-    <div className="space-y-3">
-      <div className="grid md:grid-cols-2 gap-4">
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-xl font-bold text-slate-100 mb-1">8. 高轉折點受力分析</h2>
-            <p className="text-slate-400 text-xs leading-relaxed">
-              下方錨點繩索經過<strong className="text-green-300">高轉折點</strong>（樹/鉤環/滑輪）後到操作端。
-              <code className="text-blue-300 bg-slate-800 px-1 rounded">R = T_A·û_A + T_O·û_O</code>，
-              含 Capstan 摩擦 <code className="text-blue-300 bg-slate-800 px-1 rounded">T_緊 = T_鬆·e^(μθ)</code>
-            </p>
-          </div>
-          <div className="space-y-3 bg-slate-800/50 p-4 rounded-xl">
-            <Slider label="負載 (W)" value={load_kgf} min={50} max={500} step={10} unit="kgf" onChange={setLoad} />
-            {/* 轉折物類型（先選類型，μ 自動連動） */}
-            <div>
-              <div className="text-sm font-medium text-slate-300 mb-1.5">轉折物類型</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {Object.entries(REDIRECT_TYPES).map(([key, t]) => (
-                  <button key={key} onClick={() => handleTypeChange(key)}
-                    className={`px-2 py-2 rounded text-xs flex flex-col items-center gap-0.5 transition-colors
-                      ${pulleyType===key
-                        ? key==='tree' ? 'bg-amber-700 text-white'
-                        : key==='pulley' ? 'bg-emerald-700 text-white'
-                        : 'bg-blue-700 text-white'
-                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
-                    <span>{t.icon} {t.label}</span>
-                    <span className={`font-mono text-[10px] ${pulleyType===key ? 'text-white/80' : 'text-slate-400'}`}>
-                      μ ≈ {t.mu}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <Slider label={`摩擦係數 μ（${REDIRECT_TYPES[pulleyType].icon} ${REDIRECT_TYPES[pulleyType].label}）`}
-              value={mu}
-              min={REDIRECT_TYPES[pulleyType].muMin}
-              max={REDIRECT_TYPES[pulleyType].muMax}
-              step={REDIRECT_TYPES[pulleyType].muStep}
-              unit=""
-              onChange={setMu}
-              hint={REDIRECT_TYPES[pulleyType].hint} />
-            <div>
-              <div className="text-[10px] text-slate-500">μ = {fmt(muEff, 2)}（當前有效摩擦係數）</div>
-              <div className="mt-2 bg-slate-950/60 rounded p-2 text-[10px] space-y-0.5 border border-slate-800">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">當前包覆角 θ：</span>
-                  <span className="font-mono text-purple-300">{fmt(data.angleDeg, 0)}°</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">摩擦增益 e^(μ_eff·θ)：</span>
-                  <span className="font-mono text-yellow-300">{fmt(data.gain, 2)} 倍</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">傳遞效率 η = 1/e^(μθ)：</span>
-                  <span className={`font-mono font-bold ${(1/data.gain) > 0.85 ? 'text-emerald-300' : (1/data.gain) > 0.5 ? 'text-yellow-300' : 'text-red-300'}`}>
-                    {fmt((1/data.gain) * 100, 0)}%
-                  </span>
-                </div>
-                <div className="text-slate-500 text-[9px] pt-1 border-t border-slate-800 mt-1">
-                  100 kgf 拉力 → 對端只剩 {fmt((1/data.gain) * 100, 0)} kgf
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-slate-300 mb-1.5">操作模式（緊邊）</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <button onClick={() => setTight('A')}
-                  className={`px-2 py-1.5 rounded text-xs ${tight==='A' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  ⬇ 垂降（A 端緊）
-                </button>
-                <button onClick={() => setTight('O')}
-                  className={`px-2 py-1.5 rounded text-xs ${tight==='O' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  ⬆ 拉升（O 端緊）
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 text-xs pt-1">
-              <button onClick={() => setCameraOn(!cameraOn)}
-                className={`px-3 py-1.5 rounded font-medium ${cameraOn ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
-                {cameraOn ? '⏹ 停止相機' : '📷 啟用相機 AR'}
-              </button>
-              <label className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-slate-700 text-slate-200 cursor-pointer">
-                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
-              </label>
-              <button onClick={() => setFullscreen(true)}
-                className="px-3 py-1.5 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
-                🖥 放大畫布
-              </button>
-              <button onClick={takeScreenshot}
-                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium">
-                📸 截圖
-              </button>
-              <button onClick={() => {
-                setAnchor({ x: W * 0.20, y: H * 0.78 });
-                setRedirect({ x: W * 0.50, y: H * 0.18 });
-                setOperator({ x: W * 0.80, y: H * 0.78 });
-              }} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-slate-200">重置</button>
-              {shotMsg && <span className="self-center text-emerald-400 font-medium">{shotMsg}</span>}
-            </div>
-            {cameraError && (
-              <div className="text-xs text-red-400 bg-red-950/40 border border-red-800 rounded p-2">{cameraError}</div>
-            )}
-          </div>
-        </div>
+  // 浮動控制列內容（一般模式與全螢幕模式共用）
+  const controlBar = (
+    <>
+      <span className="text-slate-300 shrink-0">W</span>
+      <input type="range" min={50} max={500} step={10} value={load_kgf}
+        onChange={(e) => setLoad(parseFloat(e.target.value))} className="w-20 accent-blue-500" />
+      <span className="text-blue-300 font-mono w-14 text-right shrink-0">{load_kgf} kgf</span>
 
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <ForceCard title="負載端張力 T_A" kN={data.T_A_kN}
-              colorClass="text-amber-400"
-              description="下方錨點 → 轉折點" />
-            <ForceCard title="操作端張力 T_O" kN={data.T_O_kN}
-              colorClass={data.T_O_kN < data.T_A_kN ? 'text-green-400' : 'text-red-400'}
-              description={tight === 'A' ? `↓ 比 T_A 少 ${fmt((1 - data.T_O_kN/data.T_A_kN)*100, 0)}%` : `↑ 比 T_A 多 ${fmt((data.T_O_kN/data.T_A_kN - 1)*100, 0)}%`} />
-          </div>
-          <ForceCard title="🌳 轉折點承受合力 R" kN={data.Rmag}
-            colorClass={data.Rmag > load_kN * 1.8 ? 'text-red-500' : 'text-orange-400'}
-            description={`為負載的 ${fmt(data.Rmag / load_kN, 2)} 倍 · 包覆角 θ = ${fmt(data.angleDeg, 0)}°`}
-            accent={data.Rmag > load_kN * 1.8} />
-          {geometryWarn && (
-            <div className="bg-orange-950/40 border border-orange-800 rounded p-2 text-xs text-orange-300">
-              ⚠ 轉折點 R 應在錨點 A 與操作端 O 上方才符合「高轉折」情境
-            </div>
-          )}
-        </div>
+      <div className="flex gap-1 shrink-0">
+        {Object.entries(REDIRECT_TYPES).map(([key, t]) => (
+          <button key={key} onClick={() => handleTypeChange(key)} title={`${t.label} μ≈${t.mu}`}
+            className={`px-2 py-1 rounded text-xs ${pulleyType===key
+              ? key==='tree' ? 'bg-amber-700 text-white'
+              : key==='pulley' ? 'bg-emerald-700 text-white'
+              : 'bg-blue-700 text-white'
+              : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>
+            {t.icon}
+          </button>
+        ))}
       </div>
 
-      {/* 互動畫布（含全螢幕模式） */}
+      <span className="text-slate-300 shrink-0">μ</span>
+      <input type="range" min={REDIRECT_TYPES[pulleyType].muMin} max={REDIRECT_TYPES[pulleyType].muMax}
+        step={REDIRECT_TYPES[pulleyType].muStep} value={mu}
+        onChange={(e) => setMu(parseFloat(e.target.value))} className="w-16 accent-blue-500" />
+      <span className="text-blue-300 font-mono w-10 text-right shrink-0">{fmt(mu, 2)}</span>
+
+      <div className="flex gap-1 shrink-0">
+        <button onClick={() => setTight('A')} title="垂降（A 端緊）"
+          className={`px-2 py-1 rounded text-xs ${tight==='A' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>⬇</button>
+        <button onClick={() => setTight('O')} title="拉升（O 端緊）"
+          className={`px-2 py-1 rounded text-xs ${tight==='O' ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-300'}`}>⬆</button>
+      </div>
+
+      <button onClick={() => setCameraOn(!cameraOn)}
+        className={`px-2.5 py-1 rounded font-medium transition-colors shrink-0 ${cameraOn ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'}`}>
+        {cameraOn ? '⏹ 相機' : '📷 相機'}
+      </button>
+      <label className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-700 text-slate-200 cursor-pointer shrink-0">
+        <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
+      </label>
+      {!fullscreen && (
+        <button onClick={() => setFullscreen(true)}
+          className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white font-medium shrink-0">🖥 放大</button>
+      )}
+      <button onClick={takeScreenshot}
+        className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium shrink-0">📸 截圖</button>
+      <button onClick={() => {
+        setAnchor({ x: W * 0.20, y: H * 0.78 });
+        setRedirect({ x: W * 0.50, y: H * 0.18 });
+        setOperator({ x: W * 0.80, y: H * 0.78 });
+      }} className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 shrink-0">重置</button>
+      {fullscreen && (
+        <button onClick={() => setFullscreen(false)}
+          className="px-2.5 py-1 rounded bg-slate-600 hover:bg-slate-500 text-white font-medium shrink-0">⏏ 退出</button>
+      )}
+      {shotMsg && <span className="text-emerald-400 font-medium shrink-0">{shotMsg}</span>}
+    </>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <h2 className="text-xl font-bold text-slate-100 mb-1">8. 高轉折點受力分析</h2>
+        <p className="text-slate-400 text-xs leading-relaxed">
+          下方錨點繩索經過<strong className="text-green-300">高轉折點</strong>（樹/鉤環/滑輪）後到操作端，拖曳 A／R／O 三點，
+          張力、包覆角、合力 R 即時標示在畫布上。含 Capstan 摩擦
+          <code className="text-blue-300 bg-slate-800 px-1 rounded">T_緊 = T_鬆·e^(μθ)</code>
+        </p>
+      </div>
+
+      {/* 互動畫布：控制列與所有數值都疊在畫布上（AR 風），含全螢幕模式 */}
       <div className={fullscreen
         ? 'fixed inset-0 z-50 bg-slate-950 flex flex-col'
         : 'relative bg-slate-950 rounded-xl border border-slate-800 overflow-hidden'}>
         {fullscreen && (
-          <div className="bg-slate-900/90 backdrop-blur px-3 py-2 flex justify-between items-center gap-2 border-b border-slate-700">
-            <span className="text-slate-200 font-bold text-sm">高轉折點受力分析 — 全螢幕模式</span>
-            <div className="flex gap-2 flex-wrap">
-              <button onClick={() => setCameraOn(!cameraOn)}
-                className={`px-3 py-1.5 rounded text-xs font-medium ${cameraOn ? 'bg-red-600 text-white' : 'bg-slate-700 text-slate-200'}`}>
-                {cameraOn ? '⏹ 相機' : '📷 相機'}
-              </button>
-              <label className="flex items-center gap-1 px-3 py-1.5 rounded bg-slate-700 text-slate-200 text-xs cursor-pointer">
-                <input type="checkbox" checked={showGrid} onChange={(e) => setShowGrid(e.target.checked)} />格線
-              </label>
-              <button onClick={takeScreenshot}
-                className="px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium">📸 截圖</button>
-              <button onClick={() => setFullscreen(false)}
-                className="px-3 py-1.5 rounded bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium">⏏ 退出</button>
-              {shotMsg && <span className="self-center text-emerald-400 text-xs">{shotMsg}</span>}
-            </div>
+          <div className="bg-slate-900/90 backdrop-blur px-3 py-2 flex flex-wrap items-center gap-2 border-b border-slate-700 text-xs">
+            <span className="text-slate-200 font-bold text-sm shrink-0 mr-1">高轉折點受力分析 — 全螢幕模式</span>
+            {controlBar}
+          </div>
+        )}
+
+        {!fullscreen && (
+          <div className="absolute top-2 left-2 right-2 z-20 flex flex-wrap items-center gap-2 bg-slate-900/85 backdrop-blur rounded-lg px-3 py-2 border border-slate-700/60 text-xs">
+            {controlBar}
+          </div>
+        )}
+
+        {(cameraError || geometryWarn) && (
+          <div className="absolute top-14 left-2 right-2 z-20 flex flex-col gap-1.5">
+            {cameraError && <div className="text-xs text-red-300 bg-red-950/85 backdrop-blur border border-red-800 rounded px-2 py-1.5">{cameraError}</div>}
+            {geometryWarn && <div className="text-xs text-orange-300 bg-orange-950/85 backdrop-blur border border-orange-800 rounded px-2 py-1.5">⚠ 轉折點 R 應在錨點 A 與操作端 O 上方才符合「高轉折」情境</div>}
           </div>
         )}
 
@@ -2460,7 +2376,7 @@ function RedirectAnalysisModule() {
 
               {/* 圖例 */}
               <g transform="translate(10, 10)">
-                <rect x="0" y="0" width="220" height="76" rx="6"
+                <rect x="0" y="0" width="220" height="98" rx="6"
                   fill={cameraOn ? 'rgba(15,23,42,0.7)' : 'rgba(2,6,23,0.85)'}
                   stroke="#475569" strokeWidth="1" />
                 <text x="8" y="16" fontSize="11" fill="#cbd5e1" fontWeight="bold">圖例</text>
@@ -2471,8 +2387,12 @@ function RedirectAnalysisModule() {
                 <line x1="8" y1="42" x2="28" y2="42" stroke="#c084fc" strokeWidth="2" />
                 <text x="34" y="45" fontSize="10" fill="#cbd5e1">包覆角 θ</text>
                 <text x="100" y="45" fontSize="10" fill="#94a3b8">μ_eff = {fmt(muEff, 2)}</text>
-                <text x="8" y="62" fontSize="9" fill="#94a3b8">A 載重 · R 轉折 · O 操作</text>
-                <text x="8" y="74" fontSize="9" fill="#94a3b8">緊邊：{tight === 'A' ? '⬇ 垂降' : '⬆ 拉升'}</text>
+                <text x="8" y="60" fontSize="9" fill="#eab308">增益 e^(μθ) = {fmt(data.gain, 2)} 倍</text>
+                <text x="118" y="60" fontSize="9" fill={(1/data.gain) > 0.85 ? '#6ee7b7' : (1/data.gain) > 0.5 ? '#fde047' : '#fca5a5'}>
+                  效率 η = {fmt((1/data.gain) * 100, 0)}%
+                </text>
+                <text x="8" y="76" fontSize="9" fill="#94a3b8">A 載重 · R 轉折 · O 操作</text>
+                <text x="8" y="90" fontSize="9" fill="#94a3b8">緊邊：{tight === 'A' ? '⬇ 垂降' : '⬆ 拉升'}</text>
               </g>
             </svg>
           </div>
