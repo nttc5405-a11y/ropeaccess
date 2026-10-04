@@ -1,6 +1,6 @@
 // 繩索受力分析系統 - Service Worker v2
 // 策略：HTML/JS 用 network-first（總是抓最新），靜態資源 cache-first
-const CACHE = 'rope-analysis-v3';
+const CACHE = 'rope-analysis-canvas-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -11,7 +11,7 @@ const ASSETS = [
   './vendor/tailwindcss.js',
   './vendor/react.production.min.js',
   './vendor/react-dom.production.min.js',
-  './vendor/babel.min.js',
+  './app.js',
 ];
 
 self.addEventListener('install', (e) => {
