@@ -1,6 +1,6 @@
 // 繩索受力分析系統 - Service Worker v2
 // 策略：HTML/JS 用 network-first（總是抓最新），靜態資源 cache-first
-const CACHE = 'rope-analysis-canvas-v2';
+const CACHE = 'rope-analysis-angles-v3';
 const ASSETS = [
   './',
   './index.html',

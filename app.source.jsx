@@ -185,7 +185,26 @@ const Results = ({children}) => {
 const ModuleTitle = ({number,title,hint}) => <div className="module-title"><div className="eyebrow">模組 {number} ／ 即時試算</div><h2>{title}</h2><p>{hint}</p></div>;
 const Reference = ({children}) => <details className="reference"><summary>公式與操作說明</summary><div>{children}</div></details>;
 const PointFields = ({points,W,H}) => <details className="reference"><summary>精確調整各點位置</summary><p>相對圖面位置（％）。X 向右增加，Y 向下增加。</p>{points.map(p=><div className="point-fields" key={p.id}><b>{p.label}</b><Slider label="X 位置" ariaLabel={`${p.id} X 位置`} value={Number((p.point.x/W*100).toFixed(1))} min={2} max={98} step={1} unit="%" onChange={v=>p.set({...p.point,x:v/100*W})}/><Slider label="Y 位置" ariaLabel={`${p.id} Y 位置`} value={Number((p.point.y/H*100).toFixed(1))} min={4} max={96} step={1} unit="%" onChange={v=>p.set({...p.point,y:v/100*H})}/></div>)}</details>;
-const layoutCanvasLabels = (labels,points,lines,W,top,bottom) => {
+const signedAngle = (a,b) => Math.atan2(Math.sin(b-a),Math.cos(b-a));
+const angleGeometry = ({center,start,delta,r=100,label,size=30,labelRadius,bounds}) => {
+  const segments=Math.max(1,Math.ceil(Math.abs(delta)/Math.PI));
+  let d=`M ${center.x+r*Math.cos(start)} ${center.y+r*Math.sin(start)}`;
+  for(let i=1;i<=segments;i++){const a=start+delta*i/segments;d+=` A ${r} ${r} 0 0 ${delta>=0?1:0} ${center.x+r*Math.cos(a)} ${center.y+r*Math.sin(a)}`;}
+  const mid=start+delta/2,lr=labelRadius??r+38;
+  let x=center.x+lr*Math.cos(mid),y=center.y+lr*Math.sin(mid);
+  const w=Math.max(size*2,label.length*size*.66)+16,h=size+16;
+  if(bounds){x=clamp(x,bounds.left+w/2+8,bounds.right-w/2-8);y=clamp(y,bounds.top+h/2+8,bounds.bottom-h/2-8);}
+  return {d,x,y,box:{x:x-w/2,y:y-h/2,w,h}};
+};
+const AngleMark = ({center,start,delta,r=100,label,color='#92400e',size=30,width=5,labelRadius,bounds}) => {
+  const {d,x,y,box}=angleGeometry({center,start,delta,r,label,size,labelRadius,bounds});
+  return <g className="angle-mark" aria-label={label} pointerEvents="none">
+    {Math.abs(delta)>1e-6&&<path className="angle-arc" d={d} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round"/>}
+    <rect className="angle-tag" x={box.x} y={box.y} width={box.w} height={box.h} rx="8" fill="#fff" stroke={color} strokeWidth={width/3}/>
+    <text x={x} y={y} dominantBaseline="central" textAnchor="middle" fontSize={size} fontWeight="750" fill={color}>{label}</text>
+  </g>;
+};
+const layoutCanvasLabels = (labels,points,lines,W,top,bottom,obstacles=[]) => {
   const placed=[];const w=252,h=94;
   const overlap=(a,b)=>Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x))*Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
   for(const label of labels){
@@ -197,6 +216,7 @@ const layoutCanvasLabels = (labels,points,lines,W,top,bottom) => {
     const score=r=>{
       let cost=Math.hypot(r.x+w/2-p.x,r.y+h/2-p.y)*0.08;
       for(const q of placed)cost+=overlap({...r,x:r.x-8,y:r.y-8,w:w+16,h:h+16},q)*100;
+      for(const q of obstacles)cost+=overlap(r,q)*80;
       for(const q of points)cost+=overlap(r,{x:q.point.x-52,y:q.point.y-52,w:104,h:104})*20;
       for(const line of lines)for(let t=0;t<=1;t+=.1){const x=line.a.x+(line.b.x-line.a.x)*t,y=line.a.y+(line.b.y-line.a.y)*t;if(x>r.x&&x<r.x+w&&y>r.y&&y<r.y+h)cost+=40;}
       return cost;
@@ -205,11 +225,12 @@ const layoutCanvasLabels = (labels,points,lines,W,top,bottom) => {
   }
   return placed;
 };
-const QuickDiagram = ({W,H,points,lines,onMove,onEnd,onStart,svgRef,videoRef,cameraOn=false,showGrid=true,fullscreen,setFullscreen,tools,extra,labels=[],metrics=[],dock=[],vbY=0,vbH=H}) => {
+const QuickDiagram = ({W,H,points,lines,onMove,onEnd,onStart,svgRef,videoRef,cameraOn=false,showGrid=true,fullscreen,setFullscreen,tools,extra,angleMarks=[],labels=[],metrics=[],dock=[],vbY=0,vbH=H}) => {
   useEffect(()=>{if(!fullscreen)return; const previous=document.body.style.overflow;document.body.style.overflow='hidden';const escape=e=>{if(e.key==='Escape')setFullscreen(false);};window.addEventListener('keydown',escape);return()=>{document.body.style.overflow=previous;window.removeEventListener('keydown',escape);};},[fullscreen]);
   const panelRef=useRef(null);const [docked,setDocked]=useState(false);
   useEffect(()=>{const check=()=>setDocked(panelRef.current?.getBoundingClientRect().bottom<0);window.addEventListener('scroll',check,{passive:true});check();return()=>window.removeEventListener('scroll',check);},[]);
-  const placed=layoutCanvasLabels(labels,points,lines,W,vbY,vbY+vbH);
+  const boundedMarks=angleMarks.map(mark=>({...mark,bounds:{left:0,top:vbY,right:W,bottom:vbY+vbH}}));
+  const placed=layoutCanvasLabels(labels,points,lines,W,vbY,vbY+vbH,boundedMarks.map(angleGeometry).map(g=>g.box));
   return <><section ref={panelRef} className={`diagram-panel ${fullscreen?'diagram-fullscreen':''}`}><div className="diagram-heading"><span>受力示意圖</span><button onClick={()=>setFullscreen(!fullscreen)}>{fullscreen?'返回試算':'放大圖形'}</button></div>
     <div className={`diagram-surface ${cameraOn?'camera-surface':''}`}>
       {cameraOn&&<video ref={videoRef} autoPlay playsInline muted />}
@@ -218,6 +239,7 @@ const QuickDiagram = ({W,H,points,lines,onMove,onEnd,onStart,svgRef,videoRef,cam
         {showGrid&&<g>{Array.from({length:Math.ceil(W/80)},(_,i)=><line key={`x${i}`} x1={i*80} y1={vbY} x2={i*80} y2={vbY+vbH} stroke={cameraOn?'#ffffff66':'#e2e8f0'} />)}{Array.from({length:Math.ceil(vbH/80)},(_,i)=><line key={`y${i}`} x1={0} y1={vbY+i*80} x2={W} y2={vbY+i*80} stroke={cameraOn?'#ffffff66':'#e2e8f0'} />)}</g>}
         {lines.map((l,i)=><line key={i} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke={l.color||'#1e40af'} strokeWidth="7" strokeLinecap="round" />)}
         {extra}
+        {boundedMarks.map((mark,i)=><AngleMark key={i} {...mark}/>)}
         <g className="canvas-labels" pointerEvents="none">
           {placed.map((l,i)=><g key={i} className="canvas-force-label" aria-label={`${l.label} ${l.value} ${l.unit||'kgf'}`}>
             <line x1={l.point.x} y1={l.point.y} x2={clamp(l.point.x,l.x,l.x+l.w)} y2={clamp(l.point.y,l.y,l.y+l.h)} stroke="#64748b" strokeWidth="2" strokeDasharray="5 5"/>
@@ -444,7 +466,9 @@ function FrictionModule() {
           <div className="flex-1 bg-white rounded-xl border border-slate-200 flex items-center justify-center p-4 min-h-[220px]">
             <svg viewBox="0 0 200 220" className="w-full h-full max-h-64">
               <circle cx="100" cy="100" r="40" fill="#334155" stroke="#475569" strokeWidth="3" />
-              <text x="100" y="104" fill="#94a3b8" fontSize="10" textAnchor="middle">μ = {mu}</text>
+              <text x="100" y="104" fill="#fff" fontSize="10" textAnchor="middle">μ = {mu}</text>
+              <AngleMark center={{x:100,y:100}} start={-Math.PI/2} delta={Math.min(theta,2*Math.PI)} r={51} labelRadius={66} label={`θ ${fmt(turns*360,0)}°`} size={12} width={2} color="#92400e"/>
+              <line x1="100" y1="100" x2="100" y2="43" stroke="#92400e" strokeWidth="1.5" strokeDasharray="3 3"/>
 
               <path d={spiralPath} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
 
@@ -856,6 +880,11 @@ function HighlineModule() {
     <ModuleTitle number="2" title="索道張力" hint="調整載重或拖曳三點，立即查看兩側張力。" />
     {(lowAngle||noSolution)&&<div className="warning" role="status">{noSolution?'幾何無效：請讓負載位於兩錨點之間及下方。':'注意：至少一側下垂角小於 5°。'}</div>}
     <QuickDiagram W={W} H={H}
+      extra={<line x1={loadPos.x-210} y1={loadPos.y} x2={loadPos.x+210} y2={loadPos.y} stroke="#64748b" strokeWidth="3" strokeDasharray="10 8"/>}
+      angleMarks={noSolution?[]:[
+        {center:loadPos,start:Math.PI,delta:signedAngle(Math.PI,Math.atan2(data.uL.y,data.uL.x)),r:150,labelRadius:190,label:`θL ${fmt(data.thetaL_deg)}°`,color:'#92400e'},
+        {center:loadPos,start:0,delta:signedAngle(0,Math.atan2(data.uR.y,data.uR.x)),r:150,labelRadius:190,label:`θR ${fmt(data.thetaR_deg)}°`,color:'#92400e'},
+        {center:loadPos,start:Math.atan2(data.uL.y,data.uL.x),delta:signedAngle(Math.atan2(data.uL.y,data.uL.x),Math.atan2(data.uR.y,data.uR.x)),r:100,label:`∠ ${fmt(data.innerAngle_deg)}°`,color:'#6d28d9'}]}
       labels={[{label:'左側張力',value:noSolution?'—':fmt(kNtoKgf(data.T_L_kN),0),point:{x:(anchorL.x+loadPos.x)/2,y:(anchorL.y+loadPos.y)/2}},{label:'右側張力',value:noSolution?'—':fmt(kNtoKgf(data.T_R_kN),0),point:{x:(anchorR.x+loadPos.x)/2,y:(anchorR.y+loadPos.y)/2}},{label:'負載 W',value:load_kgf,point:loadPos,color:'#92400e',offsets:[[0,110],[-180,70],[180,70],[0,-120]]}]}
       metrics={[`左 θ ${fmt(data.thetaL_deg)}°`,`右 θ ${fmt(data.thetaR_deg)}°`,`∠ ${fmt(data.innerAngle_deg)}°`]}
       dock={[{label:'左側張力',value:noSolution?'—':fmt(kNtoKgf(data.T_L_kN),0)},{label:'右側張力',value:noSolution?'—':fmt(kNtoKgf(data.T_R_kN),0)}]}
@@ -1029,13 +1058,14 @@ function DeathTriangleModule() {
             <ForceCard title="死亡三角 (合力)" kN={dt_kN} colorClass="text-red-500"
               description={`${fmt((dt_kN/load_kN)*100,0)}% 載重`} accent />
           </div>
-          <div className="flex-1 grid grid-cols-2 gap-2">
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="bg-white rounded-xl border border-slate-200 flex flex-col items-center p-3 overflow-hidden">
               <span className="text-xs text-green-800 mb-1 font-bold">✓ 標準 V 型架設</span>
               <svg viewBox={`${minX} 0 ${vBoxW} 170`} className="w-full h-full">
                 <circle cx={aL} cy="40" r="4" fill="#cbd5e1" />
                 <circle cx={aR} cy="40" r="4" fill="#cbd5e1" />
                 <path d={`M ${aL} 40 L ${midX} 110 L ${aR} 40`} fill="none" stroke="#22c55e" strokeWidth="2.5" />
+                <AngleMark center={{x:midX,y:110}} start={-Math.PI/2-t/2} delta={t} r={35} labelRadius={57} label={`θ ${angle}°`} size={Math.max(15,vBoxW/20)} width={2.5} color="#6d28d9"/>
                 <circle cx={midX} cy="110" r="6" fill="#3b82f6" />
                 <line x1={midX} y1="110" x2={midX} y2="150" stroke="#ef4444" strokeWidth="3" />
                 <text x={midX+8} y="148" fill="#ef4444" fontSize="11">{load_kgf}kgf</text>
@@ -1052,6 +1082,7 @@ function DeathTriangleModule() {
                 <circle cx={aL} cy="40" r="4" fill="#cbd5e1" />
                 <circle cx={aR} cy="40" r="4" fill="#cbd5e1" />
                 <path d={`M ${aL} 40 L ${aR} 40 L ${midX} 110 Z`} fill="rgba(239,68,68,0.08)" stroke="#ef4444" strokeWidth="2.5" />
+                <AngleMark center={{x:midX,y:110}} start={-Math.PI/2-t/2} delta={t} r={35} labelRadius={57} label={`θ ${angle}°`} size={Math.max(15,vBoxW/20)} width={2.5} color="#6d28d9"/>
                 <circle cx={midX} cy="110" r="6" fill="#3b82f6" />
                 <line x1={midX} y1="110" x2={midX} y2="150" stroke="#ef4444" strokeWidth="3" />
                 <line x1={aL} y1="40" x2={aL + 25} y2="40" stroke="#ef4444" strokeWidth="2" markerEnd="url(#arrL)" />
@@ -1237,12 +1268,7 @@ function DirectionalAnchorModule() {
                 <line x1={cx} y1={cy} x2={x1} y2={y1} stroke="#f59e0b" strokeWidth="3.5" />
                 <line x1={cx} y1={cy} x2={x2} y2={y2} stroke="#f59e0b" strokeWidth="3.5" />
 
-                {/* 角度弧（θ：兩繩夾角） */}
-                {angle >= 5 && (
-                  <path d={`M ${cx - 30 * Math.sin(a)} ${cy + 30 * Math.cos(a)} A 30 30 0 0 0 ${cx + 30 * Math.sin(a)} ${cy + 30 * Math.cos(a)}`}
-                    fill="none" stroke="#94a3b8" strokeWidth="1.5" />
-                )}
-                <text x={cx} y={cy + 48} textAnchor="middle" fontSize="11" fill="#94a3b8" fontWeight="bold">θ = {angle}°</text>
+                <AngleMark center={{x:cx,y:cy}} start={Math.PI/2-a} delta={2*a} r={30} labelRadius={54} label={`θ ${angle}°`} size={13} width={2.5} color="#6d28d9"/>
 
                 {/* 左端：重物（負載） */}
                 <line x1={x1} y1={y1} x2={x1} y2={y1 + 8} stroke="#f59e0b" strokeWidth="3" />
@@ -1350,10 +1376,11 @@ function AnchorPullAngleModule() {
   const [fullscreen,setFullscreen]=useState(false);
   return <div className="quick-module"><ModuleTitle number="6" title="拉力夾角模擬" hint="負載固定為 100 kg。調整夾角與摩擦係數，即時查看固定點合力。"/>
     <QuickDiagram W={W} H={H} vbY={-80} vbH={640}
+      angleMarks={[{center:A,start:Math.PI/2,delta:-toRad(alphaDeg),r:90,label:`α ${fmt(data.absAlpha)}°`,color:'#92400e'}]}
       labels={[{label:'固定點合力 R',value:fmt(kNtoKgf(data.Rmag),0),point:A},{label:'操作端拉力 P',value:fmt(kNtoKgf(data.T_P),0),point:P,color:'#065f46'},{label:'負載 L',value:100,unit:'kg',point:L,color:'#92400e'}]}
       metrics={[`α ${fmt(data.absAlpha)}°`,alphaDeg>=0?'右側':'左側',`增益 ${fmt(data.gain,2)} 倍`]}
       dock={[{label:'固定點合力 R',value:fmt(kNtoKgf(data.Rmag),0)},{label:'操作端拉力 P',value:fmt(kNtoKgf(data.T_P),0)}]} points={[{id:'A',label:'固定點',point:A,draggable:false},{id:'L',label:'負載 100 kg',point:L,draggable:false,color:'#b45309'},{id:'P',label:'拉力點',point:P,color:'#047857'}]} lines={[{a:A,b:L},{a:A,b:P,color:'#047857'}]} onMove={onMove} onStart={()=>setDragging(true)} onEnd={()=>setDragging(false)} fullscreen={fullscreen} setFullscreen={setFullscreen}
-      extra={<circle cx={A.x} cy={A.y} r={R_PULL} fill="none" stroke="#94a3b8" strokeDasharray="6 8" strokeWidth="2"/>}/>
+      extra={<><line x1={A.x} y1={A.y} x2={A.x} y2={L.y} stroke="#64748b" strokeWidth="3" strokeDasharray="10 8"/><circle cx={A.x} cy={A.y} r={R_PULL} fill="none" stroke="#94a3b8" strokeDasharray="6 8" strokeWidth="2"/></>}/>
     <div className="input-panel"><Slider label="拉力夾角 α" ariaLabel="拉力夾角" value={Number(alphaDeg.toFixed(1))} min={-180} max={180} step={1} unit="°" onChange={setAlphaDeg}/>
       <div className="preset-row">{presetAngles.map(a=><button key={a} aria-pressed={Math.round(data.absAlpha)===a} onClick={()=>setAlphaDeg(alphaDeg<0?-a:a)}>{a}°</button>)}<button onClick={()=>setAlphaDeg(-alphaDeg)}>左右鏡像</button></div>
       <Slider label="摩擦係數 μ" value={mu} min={0} max={0.6} step={0.01} onChange={setMu}/>
@@ -1421,6 +1448,12 @@ function MAModule() {
         {/* μ ↔ η 換算對照 */}
         <div className="bg-slate-100/40 border border-slate-300 rounded-xl p-3 text-xs space-y-1.5">
           <div className="text-slate-700 font-bold mb-1">📐 η ↔ μ 換算（180° 包覆角）</div>
+          <svg viewBox="0 0 280 140" className="w-full" style={{maxHeight:160}} role="img" aria-label="滑輪效率換算採用固定 180 度包覆角示意">
+            <circle cx="140" cy="75" r="28" fill="#e2e8f0" stroke="#475569" strokeWidth="2"/>
+            <path d="M 112 124 L 112 75 A 28 28 0 0 1 168 75 L 168 124" fill="none" stroke="#163f88" strokeWidth="4"/>
+            <AngleMark center={{x:140,y:75}} start={Math.PI} delta={Math.PI} r={40} labelRadius={52} label="θ 180°" size={14} width={2.5} color="#92400e"/>
+            <text x="140" y="138" textAnchor="middle" fontSize="11" fill="#334155">η ↔ μ 對照採用的固定包覆角</text>
+          </svg>
           <div className="text-slate-600 leading-relaxed">
             滑輪效率與摩擦係數的關係：<code className="text-blue-800 bg-slate-50 px-1 rounded">η = e^(−μπ)</code>
           </div>
@@ -1581,6 +1614,7 @@ function RedirectAnalysisModule() {
     <ModuleTitle number="8" title="高轉折點分析" hint="選擇轉折物與操作方向，查看轉折點承受的合力。"/>
     {geometryWarn&&<p className="warning" role="status">注意：轉折點 R 應位於 A、O 上方。</p>}
     <QuickDiagram W={W} H={H}
+      angleMarks={[{center:redirect,start:Math.atan2(data.uRA.y,data.uRA.x),delta:signedAngle(Math.atan2(data.uRA.y,data.uRA.x),Math.atan2(data.uRO.y,data.uRO.x)),r:100,label:`θ ${fmt(data.angleDeg)}°`,color:'#6d28d9'}]}
       labels={[{label:'轉折點合力 R',value:fmt(kNtoKgf(data.Rmag),0),point:redirect},{label:'載重端張力 A',value:fmt(kNtoKgf(data.T_A_kN),0),point:anchor,color:'#92400e'},{label:'操作端拉力 O',value:fmt(kNtoKgf(data.T_O_kN),0),point:operator,color:'#065f46'}]}
       metrics={[`兩繩夾角 ${fmt(data.angleDeg)}°`,`增益 ${fmt(data.gain,2)} 倍`]}
       dock={[{label:'轉折點合力 R',value:fmt(kNtoKgf(data.Rmag),0)},{label:'操作端拉力 O',value:fmt(kNtoKgf(data.T_O_kN),0)}]}
